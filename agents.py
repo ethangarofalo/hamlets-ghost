@@ -190,6 +190,8 @@ async def _generate_text(role, system, user_content, max_tokens=1000):
             )
             text = response.choices[0].message.content or ""
             return text, response
+        except asyncio.CancelledError:
+            raise
         except Exception as exc:
             last_error = exc
             if attempt >= MODEL_MAX_RETRIES or not _is_retryable_model_error(exc):

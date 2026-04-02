@@ -31,6 +31,7 @@ ADMIN_TOKEN_HEADER = "X-Admin-Token"
 
 _runner_task = None
 _stop_event = asyncio.Event()
+_runner_transition_lock = asyncio.Lock()
 
 
 def _hash_prompt(text):
@@ -324,13 +325,22 @@ async def _execute_experiment(task, iteration, consecutive_discards=0):
 
 async def run_lab_loop(n_experiments=40):
     await db.update_state(running=1)
-    schedule = experiments.build_experiment_schedule(n_experiments=n_experiments, approved_policy_controls=await db.get_approved_policy_controls())
-    for task in schedule:
-        if _stop_event.is_set():
-            break
-        state = await db.get_state()
-        await _execute_experiment(task, iteration=(state["total_experiments"] or 0) + 1, consecutive_discards=state.get("consecutive_discards") or 0)
-    await db.update_state(running=0, current_lane=None, current_track=None, current_experiment_id=None)
+    try:
+        schedule = experiments.build_experiment_schedule(
+            n_experiments=n_experiments,
+            approved_policy_controls=await db.get_approved_policy_controls(),
+        )
+        for task in schedule:
+            if _stop_event.is_set():
+                break
+            state = await db.get_state()
+            await _execute_experiment(
+                task,
+                iteration=(state["total_experiments"] or 0) + 1,
+                consecutive_discards=state.get("consecutive_discards") or 0,
+            )
+    finally:
+        await db.update_state(running=0, current_lane=None, current_track=None, current_experiment_id=None)
 
 
 @asynccontextmanager
@@ -398,12 +408,13 @@ async def start_lab(payload: dict = Body(default={}), x_admin_token: str | None 
     auth_error = _require_admin_token(x_admin_token)
     if auth_error:
         return auth_error
-    if _runner_task and not _runner_task.done():
-        return JSONResponse({"status": "already_running"})
-    _stop_event = asyncio.Event()
-    n_experiments = int(payload.get("n_experiments", 40))
-    _runner_task = asyncio.create_task(run_lab_loop(n_experiments=n_experiments))
-    return JSONResponse({"status": "started", "n_experiments": n_experiments})
+    async with _runner_transition_lock:
+        if _runner_task and not _runner_task.done():
+            return JSONResponse({"status": "already_running"})
+        _stop_event = asyncio.Event()
+        n_experiments = int(payload.get("n_experiments", 40))
+        _runner_task = asyncio.create_task(run_lab_loop(n_experiments=n_experiments))
+        return JSONResponse({"status": "started", "n_experiments": n_experiments})
 
 
 @app.post("/api/stop")
@@ -412,14 +423,15 @@ async def stop_lab(x_admin_token: str | None = Header(None, alias=ADMIN_TOKEN_HE
     auth_error = _require_admin_token(x_admin_token)
     if auth_error:
         return auth_error
-    _stop_event.set()
-    if _runner_task and not _runner_task.done():
-        try:
-            await _runner_task
-        except asyncio.CancelledError:
-            pass
-    await db.update_state(running=0, current_lane=None, current_track=None, current_experiment_id=None)
-    return JSONResponse({"status": "stopped"})
+    async with _runner_transition_lock:
+        _stop_event.set()
+        if _runner_task and not _runner_task.done():
+            try:
+                await _runner_task
+            except asyncio.CancelledError:
+                pass
+        await db.update_state(running=0, current_lane=None, current_track=None, current_experiment_id=None)
+        return JSONResponse({"status": "stopped"})
 
 
 @app.post("/api/experiment/custom")

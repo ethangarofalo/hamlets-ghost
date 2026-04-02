@@ -17,8 +17,10 @@ class BackendHardeningTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.original_runner_task = server._runner_task
         self.original_stop_event = server._stop_event
+        self.original_runner_transition_lock = server._runner_transition_lock
         server._runner_task = None
         server._stop_event = asyncio.Event()
+        server._runner_transition_lock = asyncio.Lock()
 
     async def asyncTearDown(self):
         if server._runner_task and not server._runner_task.done():
@@ -29,6 +31,7 @@ class BackendHardeningTests(unittest.IsolatedAsyncioTestCase):
                 pass
         server._runner_task = self.original_runner_task
         server._stop_event = self.original_stop_event
+        server._runner_transition_lock = self.original_runner_transition_lock
 
     async def test_stop_waits_for_runner_completion(self):
         os.environ["LAB_ADMIN_TOKEN"] = "secret-token"
@@ -44,6 +47,19 @@ class BackendHardeningTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(server._runner_task.done(), "stop should wait for the runner task to finish")
+
+    async def test_start_refuses_second_live_runner(self):
+        os.environ["LAB_ADMIN_TOKEN"] = "secret-token"
+
+        async def fake_runner():
+            await server._stop_event.wait()
+
+        server._runner_task = asyncio.create_task(fake_runner())
+
+        response = await server.start_lab(payload={"n_experiments": 1}, x_admin_token="secret-token")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.body, b'{"status":"already_running"}')
 
     async def test_generate_text_retries_transient_failures(self):
         response = SimpleNamespace(
@@ -64,7 +80,22 @@ class BackendHardeningTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(raw_response, response)
         self.assertEqual(create.await_count, 2, "transient provider failures should be retried")
 
-    async def test_database_connect_enforces_foreign_keys_and_busy_timeout(self):
+    async def test_generate_text_propagates_cancellation_without_retry(self):
+        create = AsyncMock(side_effect=asyncio.CancelledError())
+        client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+
+        with patch.object(agents, "_get_role_config", return_value=("openai", "demo-model")), patch.object(agents, "_get_client", return_value=client):
+            with self.assertRaises(asyncio.CancelledError):
+                await agents._generate_text(
+                    role="genesis",
+                    system="system",
+                    user_content="user",
+                    max_tokens=64,
+                )
+
+        self.assertEqual(create.await_count, 1, "cancellation should stop immediately without retrying")
+
+    async def test_database_connect_enforces_foreign_keys_busy_timeout_and_wal(self):
         temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(temp_dir.cleanup)
 
@@ -77,11 +108,14 @@ class BackendHardeningTests(unittest.IsolatedAsyncioTestCase):
         async with db.connect() as conn:
             foreign_keys_cursor = await conn.execute("PRAGMA foreign_keys")
             busy_timeout_cursor = await conn.execute("PRAGMA busy_timeout")
+            journal_mode_cursor = await conn.execute("PRAGMA journal_mode")
             foreign_keys = await foreign_keys_cursor.fetchone()
             busy_timeout = await busy_timeout_cursor.fetchone()
+            journal_mode = await journal_mode_cursor.fetchone()
 
         self.assertEqual(foreign_keys[0], 1)
         self.assertGreaterEqual(busy_timeout[0], 1000)
+        self.assertEqual(str(journal_mode[0]).lower(), "wal")
 
 
 if __name__ == "__main__":

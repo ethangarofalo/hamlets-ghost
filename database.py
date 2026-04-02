@@ -10,6 +10,9 @@ import aiosqlite
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "creativity_lab.db")
 HOLDOUT_SCORERS = ("critic_holdout", "hermes")
+SQLITE_BUSY_TIMEOUT_MS = 5000
+SQLITE_JOURNAL_MODE = "WAL"
+SQLITE_SYNCHRONOUS_MODE = "NORMAL"
 
 
 def _mean(values):
@@ -334,7 +337,9 @@ async def connect():
     conn = await aiosqlite.connect(DB_PATH)
     conn.row_factory = aiosqlite.Row
     await conn.execute("PRAGMA foreign_keys = ON")
-    await conn.execute("PRAGMA busy_timeout = 5000")
+    await conn.execute(f"PRAGMA busy_timeout = {SQLITE_BUSY_TIMEOUT_MS}")
+    await conn.execute(f"PRAGMA journal_mode = {SQLITE_JOURNAL_MODE}")
+    await conn.execute(f"PRAGMA synchronous = {SQLITE_SYNCHRONOUS_MODE}")
     try:
         yield conn
     finally:

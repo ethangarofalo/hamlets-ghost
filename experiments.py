@@ -576,5 +576,7 @@ def build_experiment_schedule(
                         approved_default_variant=approved_variant,
                     ))
 
-    random.shuffle(schedule)
-    return _inject_baseline_canaries(schedule, n_experiments=n_experiments)
+    exploratory_schedule = schedule[len(validation_schedule):]
+    random.shuffle(exploratory_schedule)
+    final_schedule = list(validation_schedule) + exploratory_schedule
+    return _inject_baseline_canaries(final_schedule, n_experiments=n_experiments)
