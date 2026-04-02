@@ -9,7 +9,7 @@ import aiosqlite
 
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "creativity_lab.db")
-HOLDOUT_SCORERS = ("critic_holdout", "hermes")
+HOLDOUT_SCORERS = ("critic_holdout", "hermes", "hermes_external")
 SQLITE_BUSY_TIMEOUT_MS = 5000
 SQLITE_JOURNAL_MODE = "WAL"
 SQLITE_SYNCHRONOUS_MODE = "NORMAL"
@@ -638,7 +638,7 @@ async def insert_score(experiment_id, scored_by, payload, cost=0.0, parse_failur
 async def get_holdout_scores(experiment_id):
     async with connect() as conn:
         rows = await (await conn.execute(
-            "SELECT * FROM scores WHERE experiment_id = ? AND scored_by IN ('critic_holdout', 'hermes') ORDER BY id",
+            "SELECT * FROM scores WHERE experiment_id = ? AND scored_by IN ('critic_holdout', 'hermes', 'hermes_external') ORDER BY id",
             (experiment_id,),
         )).fetchall()
         return [dict(row) for row in rows]

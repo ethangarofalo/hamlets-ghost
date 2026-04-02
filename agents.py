@@ -7,6 +7,8 @@ import re
 import sqlite3
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 try:
     from openai import AsyncOpenAI
 except ImportError:  # pragma: no cover - dependency may be absent in local recovery mode
@@ -14,25 +16,31 @@ except ImportError:  # pragma: no cover - dependency may be absent in local reco
         def __init__(self, *args, **kwargs):
             self.chat = None
 
+load_dotenv()
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
 OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY", "ollama")
+OPENCLAW_BASE_URL = os.getenv("OPENCLAW_BASE_URL", "http://127.0.0.1:8000/v1")
+OPENCLAW_API_KEY = os.getenv("OPENCLAW_API_KEY", "openclaw")
 
 OPENAI_CLIENT = AsyncOpenAI(api_key=OPENAI_API_KEY)
 OLLAMA_CLIENT = AsyncOpenAI(base_url=OLLAMA_BASE_URL, api_key=OLLAMA_API_KEY)
+OPENCLAW_CLIENT = AsyncOpenAI(base_url=OPENCLAW_BASE_URL, api_key=OPENCLAW_API_KEY)
 
 GENESIS_BACKEND = os.getenv("GENESIS_BACKEND", "openai").lower()
 MUSE_BACKEND = os.getenv("MUSE_BACKEND", "openai").lower()
 HERMES_BACKEND = os.getenv("HERMES_BACKEND", os.getenv("HOLDOUT_BACKEND", "openai")).lower()
 COUNCIL_BACKEND = os.getenv("COUNCIL_BACKEND", "openai").lower()
 INTERLOCUTOR_BACKEND = os.getenv("INTERLOCUTOR_BACKEND", COUNCIL_BACKEND).lower()
+HERMES_EXTERNAL_BACKEND = os.getenv("HERMES_EXTERNAL_BACKEND", "").strip().lower()
 
 MODEL = os.getenv("GENESIS_MODEL", os.getenv("OPENAI_MODEL", "gpt-4.1-mini"))
 MUSE_MODEL = os.getenv("MUSE_MODEL", os.getenv("OPENAI_MODEL", "gpt-4.1-mini"))
 HERMES_MODEL = os.getenv("HERMES_MODEL", os.getenv("HOLDOUT_MODEL", os.getenv("OPENAI_HOLDOUT_MODEL", MUSE_MODEL)))
 COUNCIL_MODEL = os.getenv("COUNCIL_MODEL", os.getenv("OPENAI_MODEL", "gpt-4.1-mini"))
 INTERLOCUTOR_MODEL = os.getenv("INTERLOCUTOR_MODEL", COUNCIL_MODEL)
+HERMES_EXTERNAL_MODEL = os.getenv("HERMES_EXTERNAL_MODEL", HERMES_MODEL)
 GENESIS_PROTOCOL = os.getenv("GENESIS_PROTOCOL", "socratic").lower()
 GENESIS_BRANCH_COUNT = max(2, int(os.getenv("GENESIS_BRANCH_COUNT", "3")))
 GENESIS_BRANCH_MODEL = os.getenv("GENESIS_BRANCH_MODEL", MODEL)
@@ -43,6 +51,7 @@ SCOUT_GATE_ENABLED = os.getenv("SCOUT_GATE_ENABLED", "0").strip().lower() not in
 MODEL_REQUEST_TIMEOUT_SECONDS = float(os.getenv("MODEL_REQUEST_TIMEOUT_SECONDS", "60"))
 MODEL_MAX_RETRIES = max(1, int(os.getenv("MODEL_MAX_RETRIES", "2")))
 MODEL_RETRY_BACKOFF_SECONDS = float(os.getenv("MODEL_RETRY_BACKOFF_SECONDS", "0.5"))
+HERMES_EXTERNAL_SHADOW_ENABLED = bool(HERMES_EXTERNAL_BACKEND)
 
 OPENAI_PRICING = {
     "gpt-5.1": {"input": 1.25, "output": 10.00},
@@ -134,6 +143,7 @@ ROLE_CONFIG = {
     "genesis_branch": ("GENESIS_BRANCH", GENESIS_BACKEND, GENESIS_BRANCH_MODEL),
     "muse": ("MUSE", MUSE_BACKEND, MUSE_MODEL),
     "hermes": ("HERMES", HERMES_BACKEND, HERMES_MODEL),
+    "hermes_external": ("HERMES_EXTERNAL", HERMES_EXTERNAL_BACKEND or HERMES_BACKEND, HERMES_EXTERNAL_MODEL),
     "council": ("COUNCIL", COUNCIL_BACKEND, COUNCIL_MODEL),
     "interlocutor": ("INTERLOCUTOR", INTERLOCUTOR_BACKEND, INTERLOCUTOR_MODEL),
 }
@@ -166,6 +176,8 @@ MUSE_SYSTEM = _load_prompt_override("muse", """You are MUSE. Score the artifact 
 MUSE_BUSINESS_SYSTEM = _load_prompt_override("muse_business", MUSE_SYSTEM, min_length=500)
 HERMES_SYSTEM = _load_prompt_override("hermes", """You are HERMES. Independently score the artifact and return strict JSON only.""", min_length=500)
 HERMES_BUSINESS_SYSTEM = _load_prompt_override("hermes_business", HERMES_SYSTEM, min_length=500)
+HERMES_EXTERNAL_SYSTEM = _load_prompt_override("hermes_external", HERMES_SYSTEM, min_length=500)
+HERMES_EXTERNAL_BUSINESS_SYSTEM = _load_prompt_override("hermes_external_business", HERMES_EXTERNAL_SYSTEM, min_length=500)
 
 
 def _is_retryable_model_error(exc):
@@ -215,12 +227,21 @@ def _get_client(backend):
         return OPENAI_CLIENT
     if backend == "ollama":
         return OLLAMA_CLIENT
-    raise RuntimeError(f"Unsupported backend '{backend}'. Use 'openai' or 'ollama'.")
+    if backend in {"openclaw", "openclaw_gateway"}:
+        return OPENCLAW_CLIENT
+    raise RuntimeError(
+        f"Unsupported backend '{backend}'. Use 'openai', 'ollama', 'openclaw', or 'openclaw_gateway'."
+    )
 
 
 def _get_role_config(role):
     _name, backend, model = ROLE_CONFIG[role]
     return backend, model
+
+
+def describe_role_runtime(role):
+    backend, model = _get_role_config(role)
+    return {"role": role, "backend": backend, "model": model}
 
 
 def describe_experiment_models():
@@ -229,6 +250,7 @@ def describe_experiment_models():
         "genesis_branch": {"backend": GENESIS_BACKEND, "model": GENESIS_BRANCH_MODEL},
         "muse": {"backend": MUSE_BACKEND, "model": MUSE_MODEL},
         "hermes": {"backend": HERMES_BACKEND, "model": HERMES_MODEL},
+        "hermes_external": {"backend": HERMES_EXTERNAL_BACKEND or HERMES_BACKEND, "model": HERMES_EXTERNAL_MODEL},
         "council": {"backend": COUNCIL_BACKEND, "model": COUNCIL_MODEL},
         "interlocutor": {"backend": INTERLOCUTOR_BACKEND, "model": INTERLOCUTOR_MODEL},
     }, sort_keys=True)
@@ -242,6 +264,12 @@ def describe_orchestration_policy():
             "min_muse_composite": HERMES_MIN_MUSE_COMPOSITE,
             "require_constraint_pass": HERMES_REQUIRE_CONSTRAINT_PASS,
             "runs_on": "candidate_or_better" if HERMES_GATE_ENABLED else "all_runs",
+        },
+        "hermes_external": {
+            "shadow_enabled": HERMES_EXTERNAL_SHADOW_ENABLED,
+            "backend": HERMES_EXTERNAL_BACKEND or None,
+            "model": HERMES_EXTERNAL_MODEL if HERMES_EXTERNAL_SHADOW_ENABLED else None,
+            "writes_to": "shadow_score_only" if HERMES_EXTERNAL_SHADOW_ENABLED else "disabled",
         },
         "scout": {"gate_enabled": SCOUT_GATE_ENABLED, "status": "placeholder_disabled"},
         "council": {"mode": "manual_trigger"},
@@ -443,13 +471,13 @@ async def run_muse(artifact, prompt, constraints=None, lane="creative", **_kwarg
     return result, _estimate_cost(response, "muse"), parse_failure
 
 
-async def run_hermes(artifact, prompt, constraints=None, lane="creative", **_kwargs):
+async def _run_hermes_role(role, artifact, prompt, constraints=None, lane="creative"):
     user_content = f"ORIGINAL PROMPT:\n{prompt}\n\nARTIFACT TO EVALUATE:\n{artifact}"
     if constraints:
         user_content = f"ORIGINAL PROMPT:\n{prompt}\n\nCONSTRAINTS:\n" + "\n".join(f"- {c}" for c in constraints) + f"\n\nARTIFACT TO EVALUATE:\n{artifact}"
     text, response = await _generate_text(
-        role="hermes",
-        system=HERMES_BUSINESS_SYSTEM if lane == "business" else HERMES_SYSTEM,
+        role=role,
+        system=(HERMES_EXTERNAL_BUSINESS_SYSTEM if lane == "business" else HERMES_EXTERNAL_SYSTEM) if role == "hermes_external" else (HERMES_BUSINESS_SYSTEM if lane == "business" else HERMES_SYSTEM),
         user_content=user_content,
         max_tokens=800,
     )
@@ -471,7 +499,15 @@ async def run_hermes(artifact, prompt, constraints=None, lane="creative", **_kwa
         }
     else:
         result = _normalize_score_result(result, lane)
-    return result, _estimate_cost(response, "hermes"), parse_failure
+    return result, _estimate_cost(response, role), parse_failure
+
+
+async def run_hermes(artifact, prompt, constraints=None, lane="creative", **_kwargs):
+    return await _run_hermes_role("hermes", artifact, prompt, constraints=constraints, lane=lane)
+
+
+async def run_external_hermes(artifact, prompt, constraints=None, lane="creative", **_kwargs):
+    return await _run_hermes_role("hermes_external", artifact, prompt, constraints=constraints, lane=lane)
 
 
 async def run_council_review(council_prompt):

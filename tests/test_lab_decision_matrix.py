@@ -24,9 +24,11 @@ class LabDecisionMatrixTests(unittest.IsolatedAsyncioTestCase):
         self.original_run_genesis = agents.run_genesis
         self.original_run_muse = agents.run_muse
         self.original_run_hermes = agents.run_hermes
+        self.original_run_external_hermes = getattr(agents, "run_external_hermes", None)
         self.original_hermes_gate_enabled = agents.HERMES_GATE_ENABLED
         self.original_hermes_min_muse_composite = agents.HERMES_MIN_MUSE_COMPOSITE
         self.original_hermes_require_constraint_pass = agents.HERMES_REQUIRE_CONSTRAINT_PASS
+        self.original_hermes_external_shadow_enabled = getattr(agents, "HERMES_EXTERNAL_SHADOW_ENABLED", False)
         self.original_forced_hermes_low_score_modulo = server.FORCED_HERMES_LOW_SCORE_MODULO
         self.original_forced_hermes_constraint_fail_modulo = server.FORCED_HERMES_CONSTRAINT_FAIL_MODULO
         self.original_forced_hermes_unknown_constraint_modulo = server.FORCED_HERMES_UNKNOWN_CONSTRAINT_MODULO
@@ -34,6 +36,7 @@ class LabDecisionMatrixTests(unittest.IsolatedAsyncioTestCase):
         agents.HERMES_GATE_ENABLED = True
         agents.HERMES_MIN_MUSE_COMPOSITE = 999.0
         agents.HERMES_REQUIRE_CONSTRAINT_PASS = True
+        agents.HERMES_EXTERNAL_SHADOW_ENABLED = False
         server.FORCED_HERMES_LOW_SCORE_MODULO = self.original_forced_hermes_low_score_modulo
         server.FORCED_HERMES_CONSTRAINT_FAIL_MODULO = self.original_forced_hermes_constraint_fail_modulo
         server.FORCED_HERMES_UNKNOWN_CONSTRAINT_MODULO = self.original_forced_hermes_unknown_constraint_modulo
@@ -42,9 +45,12 @@ class LabDecisionMatrixTests(unittest.IsolatedAsyncioTestCase):
         agents.run_genesis = self.original_run_genesis
         agents.run_muse = self.original_run_muse
         agents.run_hermes = self.original_run_hermes
+        if self.original_run_external_hermes is not None:
+            agents.run_external_hermes = self.original_run_external_hermes
         agents.HERMES_GATE_ENABLED = self.original_hermes_gate_enabled
         agents.HERMES_MIN_MUSE_COMPOSITE = self.original_hermes_min_muse_composite
         agents.HERMES_REQUIRE_CONSTRAINT_PASS = self.original_hermes_require_constraint_pass
+        agents.HERMES_EXTERNAL_SHADOW_ENABLED = self.original_hermes_external_shadow_enabled
         server.FORCED_HERMES_LOW_SCORE_MODULO = self.original_forced_hermes_low_score_modulo
         server.FORCED_HERMES_CONSTRAINT_FAIL_MODULO = self.original_forced_hermes_constraint_fail_modulo
         server.FORCED_HERMES_UNKNOWN_CONSTRAINT_MODULO = self.original_forced_hermes_unknown_constraint_modulo
@@ -62,6 +68,11 @@ class LabDecisionMatrixTests(unittest.IsolatedAsyncioTestCase):
         hermes_parse_failure=False,
         hermes_cost=0.0,
         hermes_should_raise=False,
+        external_hermes_result=None,
+        external_hermes_parse_failure=False,
+        external_hermes_cost=0.0,
+        external_hermes_should_raise=False,
+        enable_external_hermes=False,
         hermes_min_muse_composite=999.0,
         genesis_artifact="rain in dusk\nrain on stone\nrain goes on",
         process_trace=None,
@@ -102,10 +113,31 @@ class LabDecisionMatrixTests(unittest.IsolatedAsyncioTestCase):
             }
             return payload, hermes_cost, hermes_parse_failure
 
+        async def fake_run_external_hermes(artifact, prompt, constraints=None, lane="creative", **kwargs):
+            if external_hermes_should_raise:
+                raise RuntimeError("simulated external hermes failure")
+            payload = dict(external_hermes_result) if external_hermes_result is not None else {
+                "novelty": 7.4,
+                "surprise": 7.3,
+                "value": 7.4,
+                "elaboration": 7.2,
+                "coherence": 7.3,
+                "composite": 7.3,
+                "actionability": None,
+                "brand_fit": None,
+                "factual_reliability": None,
+                "constraints_met": True,
+                "constraint_notes": "",
+                "critique": "external shadow review",
+            }
+            return payload, external_hermes_cost, external_hermes_parse_failure
+
         agents.run_genesis = fake_run_genesis
         agents.run_muse = fake_run_muse
         agents.run_hermes = fake_run_hermes
+        agents.run_external_hermes = fake_run_external_hermes
         agents.HERMES_MIN_MUSE_COMPOSITE = hermes_min_muse_composite
+        agents.HERMES_EXTERNAL_SHADOW_ENABLED = enable_external_hermes
 
         state = await db.get_state()
         result = await server._execute_experiment(
@@ -457,6 +489,76 @@ class LabDecisionMatrixTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNotNone(holdout_score)
         self.assertIn("forced_sample_low_muse", artifact["process_trace"])
+
+    async def test_external_hermes_shadow_is_logged_without_changing_promotion_gate(self):
+        result = await self._run_experiment(
+            constraints=[],
+            muse_result={
+                "novelty": 8.2,
+                "surprise": 8.0,
+                "value": 8.1,
+                "elaboration": 7.9,
+                "coherence": 8.0,
+                "composite": 7.9,
+                "actionability": None,
+                "brand_fit": None,
+                "factual_reliability": None,
+                "constraints_met": True,
+                "constraint_notes": "",
+                "critique": "Strong draft.",
+                "keep": True,
+            },
+            muse_parse_failure=False,
+            hermes_result={
+                "novelty": 8.0,
+                "surprise": 7.8,
+                "value": 8.0,
+                "elaboration": 7.8,
+                "coherence": 7.9,
+                "composite": 7.7,
+                "actionability": None,
+                "brand_fit": None,
+                "factual_reliability": None,
+                "constraints_met": True,
+                "constraint_notes": "",
+                "critique": "",
+            },
+            external_hermes_result={
+                "novelty": 5.8,
+                "surprise": 5.7,
+                "value": 6.1,
+                "elaboration": 6.0,
+                "coherence": 6.0,
+                "composite": 5.9,
+                "actionability": None,
+                "brand_fit": None,
+                "factual_reliability": None,
+                "constraints_met": True,
+                "constraint_notes": "",
+                "critique": "External shadow evaluator is much less convinced.",
+            },
+            enable_external_hermes=True,
+            hermes_min_muse_composite=6.5,
+        )
+
+        experiment = self._fetch_one(
+            "SELECT status, promotion_status FROM experiments WHERE id = ?",
+            (result["experiment_id"],),
+        )
+        external_holdout = self._fetch_one(
+            "SELECT composite FROM scores WHERE experiment_id = ? AND scored_by = 'hermes_external'",
+            (result["experiment_id"],),
+        )
+        artifact = self._fetch_one(
+            "SELECT process_trace, source_context FROM artifacts WHERE experiment_id = ?",
+            (result["experiment_id"],),
+        )
+
+        self.assertEqual(result["status"], "promoted")
+        self.assertEqual(experiment["promotion_status"], "shadow")
+        self.assertEqual(external_holdout["composite"], 5.9)
+        self.assertIn("hermes_external", artifact["process_trace"])
+        self.assertIn("shadow_only", artifact["source_context"])
 
 
 if __name__ == "__main__":

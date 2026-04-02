@@ -78,6 +78,8 @@ MUSE_HASH = _hash_prompt(agents.MUSE_SYSTEM)
 MUSE_BUSINESS_HASH = _hash_prompt(agents.MUSE_BUSINESS_SYSTEM)
 HERMES_HASH = _hash_prompt(agents.HERMES_SYSTEM)
 HERMES_BUSINESS_HASH = _hash_prompt(agents.HERMES_BUSINESS_SYSTEM)
+HERMES_EXTERNAL_HASH = _hash_prompt(getattr(agents, "HERMES_EXTERNAL_SYSTEM", agents.HERMES_SYSTEM))
+HERMES_EXTERNAL_BUSINESS_HASH = _hash_prompt(getattr(agents, "HERMES_EXTERNAL_BUSINESS_SYSTEM", agents.HERMES_BUSINESS_SYSTEM))
 
 
 async def seed_hypotheses():
@@ -105,6 +107,32 @@ def _build_orchestration_trace(task):
             "track": task.get("track"),
             "condition": task.get("condition"),
             "hypothesis_id": task.get("hypothesis"),
+        },
+    }
+
+
+def _build_role_provenance(task):
+    lane = task.get("lane", "creative")
+    return {
+        "genesis": {
+            **agents.describe_role_runtime("genesis"),
+            "prompt_hash": GENESIS_HASH,
+            "generation_protocol": task.get("generation_protocol", "socratic"),
+        },
+        "muse": {
+            **agents.describe_role_runtime("muse"),
+            "prompt_hash": MUSE_BUSINESS_HASH if lane == "business" else MUSE_HASH,
+        },
+        "hermes": {
+            **agents.describe_role_runtime("hermes"),
+            "prompt_hash": HERMES_BUSINESS_HASH if lane == "business" else HERMES_HASH,
+            "promotion_gate_role": True,
+        },
+        "hermes_external": {
+            **agents.describe_role_runtime("hermes_external"),
+            "prompt_hash": HERMES_EXTERNAL_BUSINESS_HASH if lane == "business" else HERMES_EXTERNAL_HASH,
+            "shadow_only": True,
+            "enabled": bool(getattr(agents, "HERMES_EXTERNAL_SHADOW_ENABLED", False)),
         },
     }
 
@@ -180,6 +208,7 @@ async def _execute_experiment(task, iteration, consecutive_discards=0):
     )
 
     orchestration_trace = _build_orchestration_trace(task)
+    role_provenance = _build_role_provenance(task)
     total_cost = 0.0
     try:
         genesis_result, genesis_cost, _genesis_parse_failure = await agents.run_genesis(
@@ -200,8 +229,9 @@ async def _execute_experiment(task, iteration, consecutive_discards=0):
         process_trace.setdefault("verifier_checks", [])
         process_trace.setdefault("verifier_inferred_constraints", [])
         process_trace.setdefault("stage_costs", {})
+        process_trace.setdefault("role_routing", role_provenance)
         process_trace["orchestration"] = orchestration_trace
-        await db.insert_artifact(exp_id, artifact_content, process_trace=process_trace, source_context={})
+        await db.insert_artifact(exp_id, artifact_content, process_trace=process_trace, source_context={"role_routing": role_provenance})
 
         if not artifact_content.strip():
             process_trace["artifact_contract_status"] = "empty_artifact"
@@ -274,6 +304,9 @@ async def _execute_experiment(task, iteration, consecutive_discards=0):
         holdout_result = None
         holdout_parse_failure = True
         holdout_cost = 0.0
+        external_hermes_result = None
+        external_hermes_parse_failure = True
+        external_hermes_cost = 0.0
         if run_hermes:
             try:
                 holdout_result, holdout_cost, holdout_parse_failure = await agents.run_hermes(
@@ -294,6 +327,42 @@ async def _execute_experiment(task, iteration, consecutive_discards=0):
                 orchestration_trace["gates"]["hermes"]["reason"] = str(exc)
         else:
             orchestration_trace["skipped_agents"].append("hermes")
+
+        if getattr(agents, "HERMES_EXTERNAL_SHADOW_ENABLED", False) and run_hermes:
+            try:
+                external_hermes_result, external_hermes_cost, external_hermes_parse_failure = await agents.run_external_hermes(
+                    artifact=artifact_content,
+                    prompt=task["prompt"],
+                    constraints=task.get("constraints"),
+                    lane=task.get("lane", "creative"),
+                )
+                total_cost += external_hermes_cost or 0.0
+                if not external_hermes_parse_failure:
+                    await db.insert_score(exp_id, "hermes_external", external_hermes_result, cost=external_hermes_cost, parse_failure=False)
+                process_trace.setdefault("shadow_evaluators", {})
+                process_trace["shadow_evaluators"]["hermes_external"] = {
+                    "enabled": True,
+                    "backend": role_provenance["hermes_external"]["backend"],
+                    "model": role_provenance["hermes_external"]["model"],
+                    "parse_failure": bool(external_hermes_parse_failure),
+                    "composite": external_hermes_result.get("composite") if external_hermes_result else None,
+                    "constraints_met": external_hermes_result.get("constraints_met") if external_hermes_result else None,
+                }
+            except Exception as exc:
+                process_trace.setdefault("shadow_evaluators", {})
+                process_trace["shadow_evaluators"]["hermes_external"] = {
+                    "enabled": True,
+                    "backend": role_provenance["hermes_external"]["backend"],
+                    "model": role_provenance["hermes_external"]["model"],
+                    "error": str(exc),
+                }
+        elif getattr(agents, "HERMES_EXTERNAL_SHADOW_ENABLED", False):
+            process_trace.setdefault("shadow_evaluators", {})
+            process_trace["shadow_evaluators"]["hermes_external"] = {
+                "enabled": True,
+                "skipped": True,
+                "reason": orchestration_trace["gates"]["hermes"]["reason"],
+            }
 
         composite = muse_result.get("composite")
         constraints_met = muse_result.get("constraints_met")
@@ -330,6 +399,11 @@ async def _execute_experiment(task, iteration, consecutive_discards=0):
             promotion = "candidate"
 
         orchestration_trace["final_outcome"] = {"status": status, "promotion_status": promotion, "keep": keep}
+        if external_hermes_result and external_hermes_result.get("composite") is not None and composite is not None:
+            process_trace.setdefault("shadow_evaluators", {})
+            process_trace["shadow_evaluators"]["hermes_external"]["divergence_from_muse"] = abs(composite - external_hermes_result.get("composite"))
+            if holdout_result and holdout_result.get("composite") is not None:
+                process_trace["shadow_evaluators"]["hermes_external"]["divergence_from_local_hermes"] = abs(holdout_result.get("composite") - external_hermes_result.get("composite"))
         process_trace["orchestration"] = orchestration_trace
         await db.update_artifact_process_trace(exp_id, process_trace)
         await db.finalize_experiment(

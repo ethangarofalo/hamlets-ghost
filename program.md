@@ -12,6 +12,7 @@ as estimated by evaluator agreement and validated, when available, by human judg
 See also: `research-roadmap.md` for the active improvement plan, finding criteria, and sharing path.
 See also: `docs/backend-safety-protocol.md` for the required preflight and recovery rules before risky backend edits.
 See also: `docs/hermes-trust-model.md` for the staged authority model for backend/operator integration.
+See also: `docs/external-agent-rollout.md` for the staged architecture for OpenClaw Genesis and external Hermes integration.
 
 ## Source Safety
 

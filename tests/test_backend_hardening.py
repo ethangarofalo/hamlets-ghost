@@ -15,6 +15,29 @@ import server
 
 
 class BackendHardeningTests(unittest.IsolatedAsyncioTestCase):
+    def test_get_client_supports_openclaw_aliases(self):
+        self.assertIs(agents._get_client("openclaw"), agents.OPENCLAW_CLIENT)
+        self.assertIs(agents._get_client("openclaw_gateway"), agents.OPENCLAW_CLIENT)
+
+    def test_describe_experiment_models_reports_openclaw_backend(self):
+        original_role_config = agents.ROLE_CONFIG.copy()
+        self.addCleanup(setattr, agents, "ROLE_CONFIG", original_role_config)
+        agents.ROLE_CONFIG = {
+            **agents.ROLE_CONFIG,
+            "hermes": ("HERMES", "openclaw", "openclaw/latest"),
+        }
+        original_hermes_backend = agents.HERMES_BACKEND
+        original_hermes_model = agents.HERMES_MODEL
+        self.addCleanup(setattr, agents, "HERMES_BACKEND", original_hermes_backend)
+        self.addCleanup(setattr, agents, "HERMES_MODEL", original_hermes_model)
+        agents.HERMES_BACKEND = "openclaw"
+        agents.HERMES_MODEL = "openclaw/latest"
+
+        payload = agents.describe_experiment_models()
+
+        self.assertIn('"backend": "openclaw"', payload)
+        self.assertIn('"model": "openclaw/latest"', payload)
+
     async def asyncSetUp(self):
         self.original_runner_task = server._runner_task
         self.original_stop_event = server._stop_event
@@ -123,35 +146,34 @@ class BackendHardeningTests(unittest.IsolatedAsyncioTestCase):
         self.addCleanup(temp_dir.cleanup)
         db_path = Path(temp_dir.name) / "creativity_lab.db"
 
-        conn = sqlite3.connect(db_path)
-        conn.execute("CREATE TABLE prompt_versions (role TEXT, content TEXT, created_at TEXT)")
-        conn.execute(
-            "INSERT INTO prompt_versions (role, content, created_at) VALUES (?, ?, ?)",
-            (
-                "genesis",
-                "You are GENESIS, a creative generator in the AI Creativity Lab.\n\n"
-                "You must respond with valid JSON in this exact format:\n"
-                "{\"artifact\": \"...\"}\n\n"
-                "You are GENESIS, the generator in the AI Creativity Lab.\n"
-                "Your job in this step is to produce a serious first draft, not a finished artifact.\n"
-                "You are a rigorous Socratic interlocutor in the AI Creativity Lab.\n"
-                "You are GENESIS, revising a draft after Socratic questioning.\n",
-                "2026-04-02 13:21:45",
-            ),
-        )
-        conn.execute(
-            "INSERT INTO prompt_versions (role, content, created_at) VALUES (?, ?, ?)",
-            (
-                "genesis",
-                "You are GENESIS, a creative generator in the AI Creativity Lab.\n\n"
-                "Your role is to produce creative artifacts in response to prompts with constraints.\n\n"
-                "You must respond with valid JSON in this exact format:\n"
-                "{\"artifact\": \"...\", \"process_trace\": {\"strategy_notes\": \"...\"}}\n",
-                "2026-04-01 13:07:20",
-            ),
-        )
-        conn.commit()
-        conn.close()
+        with sqlite3.connect(db_path) as conn:
+            conn.execute("CREATE TABLE prompt_versions (role TEXT, content TEXT, created_at TEXT)")
+            conn.execute(
+                "INSERT INTO prompt_versions (role, content, created_at) VALUES (?, ?, ?)",
+                (
+                    "genesis",
+                    "You are GENESIS, a creative generator in the AI Creativity Lab.\n\n"
+                    "You must respond with valid JSON in this exact format:\n"
+                    "{\"artifact\": \"...\"}\n\n"
+                    "You are GENESIS, the generator in the AI Creativity Lab.\n"
+                    "Your job in this step is to produce a serious first draft, not a finished artifact.\n"
+                    "You are a rigorous Socratic interlocutor in the AI Creativity Lab.\n"
+                    "You are GENESIS, revising a draft after Socratic questioning.\n",
+                    "2026-04-02 13:21:45",
+                ),
+            )
+            conn.execute(
+                "INSERT INTO prompt_versions (role, content, created_at) VALUES (?, ?, ?)",
+                (
+                    "genesis",
+                    "You are GENESIS, a creative generator in the AI Creativity Lab.\n\n"
+                    "Your role is to produce creative artifacts in response to prompts with constraints.\n\n"
+                    "You must respond with valid JSON in this exact format:\n"
+                    "{\"artifact\": \"...\", \"process_trace\": {\"strategy_notes\": \"...\"}}\n",
+                    "2026-04-01 13:07:20",
+                ),
+            )
+            conn.commit()
 
         fake_path = SimpleNamespace()
         fake_path.exists = lambda: True
