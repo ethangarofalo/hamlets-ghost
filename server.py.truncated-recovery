@@ -1,0 +1,500 @@
+import asyncio
+import hashlib
+import json
+import os
+import random
+import traceback as tb
+from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from fastapi import Body, FastAPI, Header
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, JSONResponse
+
+import database as db
+import agents
+import experiments
+
+# --- Promotion thresholds ---
+
+PROMOTE_COMPOSITE_THRESHOLD = 7.0
+KEEP_COMPOSITE_THRESHOLD = 6.5
+MAX_DIVERGENCE_FOR_PROMOTION = 1.5
+MAX_CONSECUTIVE_DISCARDS = 10
+FORCED_HERMES_LOW_SCORE_MODULO = max(0, int(os.getenv("FORCED_HERMES_LOW_SCORE_MODULO", "5")))
+FORCED_HERMES_CONSTRAINT_FAIL_MODULO = max(0, int(os.getenv("FORCED_HERMES_CONSTRAINT_FAIL_MODULO", "3")))
+FORCED_HERMES_UNKNOWN_CONSTRAINT_MODULO = max(0, int(os.getenv("FORCED_HERMES_UNKNOWN_CONSTRAINT_MODULO", "4")))
+DEFAULT_HOST = os.getenv("LAB_HOST", "127.0.0.1")
+DEFAULT_PORT = int(os.getenv("PORT", "7777"))
+ADMIN_TOKEN_HEADER="***"
+
+
+# --- Prompt version hashing (autoresearch pattern: track what produced each result) ---
+
+def _hash_prompt(text):
+    return hashlib.sha256(text.encode()).hexdigest()[:12]
+
+
+def _get_admin_api_token():
+    return os.getenv("LAB_ADMIN_TOKEN") or os.getenv("ADMIN_API_TOKEN")
+
+
+def _require_admin_token(provided_token):
+    expected_token=_get_a...en()
+    if not expected_token:
+        return JSONResponse(
+            {
+                "error": "Admin API token is not configured. Set LAB_ADMIN_TOKEN to enable write endpoints.",
+            },
+            status_code=503,
+        )
+    if provided_token != expected_token:
+        return JSONResponse(
+            {"error": f"Unauthorized. Provide {ADMIN_TOKEN_HEADER} for admin routes."},
+            status_code=401,
+        )
+    return None
+
+
+def _sanitize_experiment_record(record):
+    sanitized = dict(record or {})
+    raw_traceback = sanitized.pop("error_traceback", None)
+    if raw_traceback:
+        sanitized["has_internal_error_details"] = True
+        if sanitized.get("status") == "error":
+            sanitized["error_summary"] = "Experiment failed internally. Check server logs for full details."
+    return sanitized
+
+
+GENESIS_PROMPT_BUNDLE = "\n\n".join([
+    agents.GENESIS_SYSTEM,
+    getattr(agents, "GENESIS_DRAFT_SYSTEM", ""),
+    getattr(agents, "SOCRATIC_INTERLOCUTOR_SYSTEM", ""),
+    getattr(agents, "GENESIS_REVISION_SYSTEM", ""),
+])
+GENESIS_HASH = _hash_prompt(GENESIS_PROMPT_BUNDLE)
+MUSE_HASH = _hash_prompt(agents.MUSE_SYSTEM)
+MUSE_BUSINESS_HASH = _hash_prompt(agents.MUSE_BUSINESS_SYSTEM)
+HERMES_HASH = _hash_prompt(agents.HERMES_SYSTEM)
+HERMES_BUSINESS_HASH = _hash_prompt(agents.HERMES_BUSINESS_SYSTEM)
+
+
+# --- Lab runner ---
+
+_runner_task = None
+_stop_event = asyncio.Event()
+
+
+async def seed_hypotheses():
+    """Store all hypotheses in DB on startup."""
+    for h_id, h_data in experiments.HYPOTHESES.items():
+        await db.insert_hypothesis(h_id, h_data["description"], h_data["lane"])
+    # Store prompt versions
+    await db.store_prompt_version(GENESIS_HASH, "genesis", GENESIS_PROMPT_BUNDLE)
+    if getattr(agents, "GENESIS_DRAFT_SYSTEM", None):
+        await db.store_prompt_version(_hash_prompt(agents.GENESIS_DRAFT_SYSTEM), "genesis_draft", agents.GENESIS_DRAFT_SYSTEM)
+    if getattr(agents, "SOCRATIC_INTERLOCUTOR_SYSTEM", None):
+        await db.store_prompt_version(_hash_prompt(agents.SOCRATIC_INTERLOCUTOR_SYSTEM), "interlocutor", agents.SOCRATIC_INTERLOCUTOR_SYSTEM)
+    if getattr(agents, "GENESIS_REVISION_SYSTEM", None):
+        await db.store_prompt_version(_hash_prompt(agents.GENESIS_REVISION_SYSTEM), "genesis_revision", agents.GENESIS_REVISION_SYSTEM)
+    await db.store_prompt_version(MUSE_HASH, "muse", agents.MUSE_SYSTEM)
+    await db.store_prompt_version(MUSE_BUSINESS_HASH, "muse_business", agents.MUSE_BUSINESS_SYSTEM)
+    await db.store_prompt_version(HERMES_HASH, "hermes", agents.HERMES_SYSTEM)
+    await db.store_prompt_version(HERMES_BUSINESS_HASH, "hermes_business", agents.HERMES_BUSINESS_SYSTEM)
+
+
+def _build_orchestration_trace(task):
+    return {
+        "policy": agents.describe_orchestration_policy(),
+        "planned_agents": ["genesis", "muse", "hermes"],
+        "executed_agents": ["genesis"],
+        "skipped_agents": [],
+        "gates": {
+            "hermes": {
+                "eligible": None,
+                "decision": "pending",
+                "reason": "awaiting_muse_triage",
+            },
+            "scout": {
+                "eligible": False,
+                "decision": "skipped",
+                "reason": "not_implemented",
+            },
+        },
+        "task_context": {
+            "lane": task.get("lane"),
+            "track": task.get("track"),
+            "condition": task.get("condition"),
+            "hypothesis_id": task.get("hypothesis"),
+        },
+    }
+
+
+def _forced_hermes_reason(experiment_id, muse_result):
+    if not experiment_id or not muse_result:
+        return None
+
+    composite = muse_result.get("composite")
+    constraints_met = muse_result.get("constraints_met")
+
+    if constraints_met is False and FORCED_HERMES_CONSTRAINT_FAIL_MODULO and experiment_id % FORCED_HERMES_CONSTRAINT_FAIL_MODULO == 0:
+        return "forced_sample_constraint_fail"
+    if constraints_met is None and FORCED_HERMES_UNKNOWN_CONSTRAINT_MODULO and experiment_id % FORCED_HERMES_UNKNOWN_CONSTRAINT_MODULO == 0:
+        return "forced_sample_unknown_constraints"
+    if composite is not None and composite < agents.HERMES_MIN_MUSE_COMPOSITE:
+        if FORCED_HERMES_LOW_SCORE_MODULO and experiment_id % FORCED_HERMES_LOW_SCORE_MODULO == 0:
+            return "forced_sample_low_muse"
+    return None
+
+
+def _should_run_hermes(muse_result, muse_parse_failure, experiment_id=None):
+    if muse_parse_failure:
+        return False, "muse_parse_failure"
+    if not agents.HERMES_GATE_ENABLED:
+        return True, "gate_disabled"
+
+    composite = muse_result.get("composite") if muse_result else None
+    constraints_met = muse_result.get("constraints_met") if muse_result else None
+
+    if composite is None:
+        return False, "missing_muse_composite"
+    if agents.HERMES_REQUIRE_CONSTRAINT_PASS and constraints_met is False:
+        forced_reason = _forced_hermes_reason(experiment_id, muse_result)
+        return (True, forced_reason) if forced_reason else (False, "constraint_failed_before_hermes")
+    if composite < agents.HERMES_MIN_MUSE_COMPOSITE:
+        forced_reason = _forced_hermes_reason(experiment_id, muse_result)
+        return (True, forced_reason) if forced_reason else (False, f"muse_below_threshold_{agents.HERMES_MIN_MUSE_COMPOSITE:.1f}")
+    if constraints_met is None:
+        forced_reason = _forced_hermes_reason(experiment_id, muse_result)
+        if forced_reason:
+            return True, forced_reason
+    return True, "candidate_threshold_met"
+
+
+def _infer_accountability_status(change_text, policy_rows, validation_rows):
+    text = (change_text or "").lower()
+    matching_policy_rows = []
+    for row in policy_rows or []:
+        family = (row.get("prompt_family") or "").lower()
+        approved = (row.get("approved_value") or "").lower()
+        recommended = (row.get("recommended_value") or "").lower()
+        if family and family in text:
+            matching_policy_rows.append(row)
+            continue
+        if approved and approved in text:
+            matching_policy_rows.append(row)
+            continue
+        if recommended and recommended in text:
+            matching_policy_rows.append(row)
+
+    matching_validation_rows = []
+    for row in validation_rows or []:
+        family = (row.get("prompt_family") or "").lower()
+        approved = (row.get("approved_value") or "").lower()
+        if family and family in text:
+            matching_validation_rows.append(row)
+            continue
+        if approved and approved in text:
+            matching_validation_rows.append(row)
+
+    if any(row.get("operational_status") == "approved_validated" for row in matching_validation_rows):
+        return "tested_in_lab"
+    if any(row.get("operational_status") in {"approved_pending_use", "approved_in_trial"} for row in matching_validation_rows):
+        return "scheduled_or_in_validation"
+    if any(row.get("approval_status") == "approved" for row in matching_policy_rows):
+        return "approved"
+    if matching_policy_rows:
+        return "linked_in_policy_ledger"
+    return "unlinked"
+
+
+def _extract_verifier_constraint_state(process_trace):
+    trace = process_trace or {}
+    checks = trace.get("verifier_checks") or []
+    inferred_constraints = trace.get("verifier_inferred_constraints") or []
+    findings = trace.get("verifier_findings") or []
+    verification_status = trace.get("verification_status")
+
+    machine_checks = [check for check in checks if check.get("machine_checked")]
+    has_effective_constraints = bool(machine_checks or inferred_constraints)
+    if not has_effective_constraints:
+        return {
+            "has_effective_constraints": False,
+            "constraints_met": None,
+            "constraint_notes": "",
+        }
+
+    machine_pass = all(bool(check.get("passed")) for check in machine_checks) if machine_checks else None
+    note_parts = []
+    if verification_status:
+        note_parts.append(f"Verifier status: {verification_status}")
+    if inferred_constraints:
+        note_parts.append("Verifier inferred constraints: " + "; ".join(inferred_constraints))
+    if findings:
+        note_parts.append("Verifier findings: " + "; ".join(findings))
+    if trace.get("verifier_repair_summary"):
+        note_parts.append("Verifier repair summary: " + trace["verifier_repair_summary"])
+
+    return {
+        "has_effective_constraints": True,
+        "constraints_met": machine_pass,
+        "constraint_notes": "\n".join(note_parts),
+    }
+
+
+def _apply_verifier_constraint_state(score_result, process_trace):
+    verifier_state = _extract_verifier_constraint_state(process_trace)
+    merged = dict(score_result or {})
+
+    if verifier_state["has_effective_constraints"] and verifier_state["constraints_met"] is not None:
+        merged["constraints_met"] = verifier_state["constraints_met"]
+        verifier_notes = verifier_state["constraint_notes"]
+        merged["constraint_notes"] = verifier_notes or (merged.get("constraint_notes") or "")
+    elif "constraint_notes" not in merged:
+        merged["constraint_notes"] = ""
+
+    return merged, verifier_state
+
+
+def _normalize_custom_task(payload):
+    prompt = (payload.get("prompt") or "").strip()
+    if not prompt:
+        raise ValueError("Prompt is required.")
+
+    lane = (payload.get("lane") or "creative").strip().lower()
+    if lane not in {"creative", "business"}:
+        raise ValueError("Lane must be 'creative' or 'business'.")
+
+    condition = (payload.get("condition") or "critique_on").strip().lower()
+    if condition not in {"critique_on", "critique_off"}:
+        raise ValueError("Condition must be 'critique_on' or 'critique_off'.")
+
+    raw_constraints = payload.get("constraints")
+    if isinstance(raw_constraints, str):
+        constraints = [line.strip() for line in raw_constraints.splitlines() if line.strip()]
+    elif isinstance(raw_constraints, list):
+        constraints = [str(item).strip() for item in raw_constraints if str(item).strip()]
+    else:
+        constraints = []
+
+    task = {
+        "id": f"custom_{_hash_prompt(prompt)}",
+        "lane": lane,
+        "prompt": prompt,
+        "creativity_type": (payload.get("creativity_type") or "custom").strip().lower(),
+        "constraints": constraints,
+        "track": (payload.get("track") or "custom").strip().lower(),
+        "family": (payload.get("family") or "custom_operator").strip() or "custom_operator",
+        "hypothesis": (payload.get("hypothesis") or "").strip() or None,
+        "condition": condition,
+        "study_mode": (payload.get("study_mode") or "custom").strip().lower() or "custom",
+        "prompt_policy_variant": (payload.get("prompt_policy_variant") or "").strip() or None,
+        "framing_style": (payload.get("framing_style") or "").strip().lower() or None,
+        "novelty_pressure": (payload.get("novelty_pressure") or "").strip().lower() or None,
+        "audience_grounding_level": (payload.get("audience_grounding_level") or "").strip().lower() or None,
+        "generation_guidance": (payload.get("generation_guidance") or "").strip(),
+    }
+    return task
+
+
+async def _resolve_policy_control(task):
+    registry_rows = await db.get_policy_registry()
+    approved_defaults = {
+        (row.get("lane"), row.get("prompt_family")): row.get("approved_value")
+        for row in registry_rows
+        if row.get("policy_key") == "prompt_policy_default"
+        and row.get("approval_status") == "approved"
+        and row.get("approved_value")
+    }
+    approved_variant = approved_defaults.get((task.get("lane"), task.get("family")))
+    return experiments.apply_policy_control(task, approved_variant)
+
+
+async def _execute_experiment(task, iteration, consecutive_discards):
+    task = await _resolve_policy_control(task)
+    condition = task.get("condition", "critique_on")
+    lane = task.get("lane", "creative")
+    evaluator_hash = MUSE_BUSINESS_HASH if lane == "business" else MUSE_HASH
+    holdout_hash = HERMES_BUSINESS_HASH if lane == "business" else HERMES_HASH
+
+    exp_id = await db.insert_experiment(
+        lane=lane,
+        track=task["track"],
+        iteration=iteration,
+        creativity_type=task["creativity_type"],
+        prompt=task["prompt"],
+        prompt_family=task.get("family"),
+        constraints=task.get("constraints"),
+        condition=condition,
+        hypothesis_id=task.get("hypothesis"),
+        prompt_version_hash=GENESIS_HASH,
+        evaluator_version_hash=evaluator_hash,
+        holdout_evaluator_version_hash=holdout_hash,
+        model_version=agents.describe_experiment_models(),
+        generation_protocol=agents.GENESIS_PROTOCOL,
+        prompt_policy_variant=task.get("prompt_policy_variant"),
+        framing_style=task.get("framing_style"),
+        novelty_pressure=task.get("novelty_pressure"),
+        audience_grounding_level=task.get("audience_grounding_level"),
+        study_mode=task.get("study_mode"),
+        policy_source=task.get("policy_source"),
+        approved_family_policy_variant=task.get("approved_family_policy_variant"),
+    )
+    await db.update_state(
+        running=1,
+        current_lane=lane,
+        current_track=task["track"],
+        current_experiment_id=exp_id,
+        total_experiments=iteration,
+    )
+
+    prior_feedback = None
+    if condition == "critique_on":
+        prior_result = await db.get_last_completed_critique(
+            exclude_experiment_id=exp_id,
+            lane=lane,
+            prompt=task["prompt"],
+            hypothesis_id=task.get("hypothesis"),
+            prompt_family=task.get("family"),
+        )
+        if prior_result and prior_result.get("critique"):
+            prior_feedback = prior_result["critique"]
+
+    genesis_parse_failure = False
+    muse_parse_failure = False
+
+    try:
+        orchestration_trace = _build_orchestration_trace(task)
+        reference_pack = await db.get_latest_reference_pack(
+            prompt_family=task.get("family"),
+            lane=lane,
+            status="approved",
+        )
+        genesis_result, gen_cost, genesis_parse_failure = await agents.run_genesis(
+            prompt=task["prompt"],
+            constraints=task.get("constraints"),
+            prior_feedback=prior_feedback,
+            policy_context=experiments.build_policy_context(task),
+        )
+
+        artifact_content = genesis_result.get("artifact", "")
+        process_trace = genesis_result.get("process_trace", {})
+        process_trace["orchestration"] = orchestration_trace
+
+        source_context = {
+            "internet_grounded": bool(reference_pack and reference_pack.get("source_type") == "web"),
+            "policy_context": experiments.build_policy_context(task),
+            "reference_pack": {
+                "id": reference_pack.get("id"),
+                "title": reference_pack.get("title"),
+                "lane": reference_pack.get("lane"),
+                "prompt_family": reference_pack.get("prompt_family"),
+                "status": reference_pack.get("status"),
+                "source_type": reference_pack.get("source_type"),
+                "task_definition": reference_pack.get("task_definition"),
+            } if reference_pack else None,
+            "retrieved_context_pack": bool(reference_pack),
+            "repair_occurred": False,
+        }
+
+        art_id = await db.insert_artifact(
+            experiment_id=exp_id,
+            content=artifact_content,
+            process_trace=process_trace,
+            source_context=source_context,
+        )
+
+        muse_result, muse_cost, muse_parse_failure = await agents.run_muse(
+            artifact=artifact_content,
+            prompt=task["prompt"],
+            constraints=task.get("constraints"),
+            lane=lane,
+        )
+        muse_result, verifier_state = _apply_verifier_constraint_state(muse_result, process_trace)
+        orchestration_trace["executed_agents"].append("muse")
+        run_hermes, hermes_gate_reason = _should_run_hermes(muse_result, muse_parse_failure, experiment_id=exp_id)
+        orchestration_trace["gates"]["hermes"] = {
+            "eligible": run_hermes,
+            "decision": "run" if run_hermes else "skipped",
+            "reason": hermes_gate_reason,
+            "muse_composite": muse_result.get("composite") if muse_result else None,
+            "constraints_met": muse_result.get("constraints_met") if muse_result else None,
+        }
+        process_trace["orchestration"] = orchestration_trace
+        await db.update_artifact_process_trace(exp_id, process_trace)
+
+        holdout_result, holdout_cost, holdout_parse_failure = None, 0.0, True
+        if run_hermes:
+            try:
+                holdout_result, holdout_cost, holdout_parse_failure = await agents.run_hermes(
+                    artifact=artifact_content,
+                    prompt=task["prompt"],
+                    constraints=task.get("constraints"),
+                    lane=lane,
+                )
+                holdout_result, _ = _apply_verifier_constraint_state(holdout_result, process_trace)
+                orchestration_trace["executed_agents"].append("hermes")
+                if holdout_parse_failure:
+                    orchestration_trace["gates"]["hermes"]["decision"] = "parse_failure"
+                    orchestration_trace["gates"]["hermes"]["reason"] = "hermes_parse_failure"
+            except Exception as hermes_error:
+                print(f"Holdout failed (non-fatal): {hermes_error}")
+                orchestration_trace["gates"]["hermes"]["decision"] = "error"
+                orchestration_trace["gates"]["hermes"]["reason"] = str(hermes_error)
+        else:
+            orchestration_trace["skipped_agents"].append("hermes")
+        process_trace["orchestration"] = orchestration_trace
+        await db.update_artifact_process_trace(exp_id, process_trace)
+
+        composite = muse_result.get("composite")
+        constraints_met = muse_result.get("constraints_met")
+        has_constraints = bool(task.get("constraints")) or verifier_state["has_effective_constraints"]
+
+        if source_context is not None:
+            source_context["repair_occurred"] = process_trace.get("verification_status") in ("passed_after_repair", "failed_after_repair")
+            await db.update_artifact_source_context(exp_id, source_context)
+
+        critic_composite = None
+        divergence = None
+        if holdout_result and not holdout_parse_failure:
+            critic_composite = holdout_result.get("composite")
+            if composite is not None and critic_composite is not None:
+                divergence = abs(composite - critic_composite)
+
+        # For promotion decisions, treat unknown constraints on constrained tasks as non-passing.
+        # The raw constraints_met (which may be None) is preserved in the score record for analytics.
+        effective_constraints_passed = constraints_met is not False if not has_constraints else constraints_met is True
+
+        if muse_parse_failure:
+            keep = False
+            status = "invalid"
+            promotion = "candidate"
+        elif has_constraints and not effective_constraints_passed:
+            keep = False
+            status = "constraint_fail"
+            promotion = "candidate"
+        elif composite is not None and composite >= PROMOTE_COMPOSITE_THRESHOLD and effective_constraints_passed:
+            if divergence is not None and divergence < MAX_DIVERGENCE_FOR_PROMOTION:
+                keep = True
+                status = "promoted"
+                promotion = "shadow"
+            else:
+                keep = True
+                status = "kept"
+                promotion = "candidate"
+        elif composite is not None and composite >= KEEP_COMPOSITE_THRESHOLD and effective_constraints_passed:
+            keep = True
+            status = "kept"
+            promotion = "candidate"
+        else:
+            keep = False
+            status = "discard"
+            promotion = "candidate"
+
+        critique_source = "prior_critique" if prior_feedback else "none"
+        orchestration_trace["final_outcome"] = {
+            "status": status,
+            "promotion_status": promotion,
+            "keep": keep,

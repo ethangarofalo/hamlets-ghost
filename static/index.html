@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Creativity Lab</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-left">
+                <h1><span class="bolt">&#9889;</span>AI Creativity Lab</h1>
+                <div class="subtitle">Autonomous R&amp;D &middot; GENESIS / MUSE / HERMES</div>
+            </div>
+            <div class="header-right">
+                <button class="btn-refresh" onclick="triggerCouncil()">&#9878; R&amp;D Council</button>
+                <button class="btn-refresh" onclick="refresh()">&#8635; Refresh</button>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" data-tab="experiment">
+                Experiment Runner <span class="badge" id="runner-badge">IDLE</span>
+            </div>
+            <div class="tab" data-tab="council">
+                R&amp;D Council <span class="badge pending" id="council-count">0</span>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-start" onclick="startLab()">&#9654; Start Lab</button>
+            <button class="btn btn-stop" onclick="stopLab()">&#9632; Stop</button>
+            <label class="review-field batch-size-field">
+                <span>Batch Size</span>
+                <input id="batch-size" type="number" min="1" max="200" value="10" />
+            </label>
+        </div>
+
+        <div class="custom-runner">
+            <div class="section-label">Custom Experiment <span class="history-hint">(run one operator-authored prompt through the same pipeline)</span></div>
+            <div class="modal-review-grid">
+                <label class="review-field">
+                    <span>Lane</span>
+                    <select id="custom-lane">
+                        <option value="creative">creative</option>
+                        <option value="business">business</option>
+                    </select>
+                </label>
+                <label class="review-field">
+                    <span>Track</span>
+                    <input id="custom-track" type="text" value="custom" />
+                </label>
+                <label class="review-field">
+                    <span>Condition</span>
+                    <select id="custom-condition">
+                        <option value="critique_on">critique_on</option>
+                        <option value="critique_off">critique_off</option>
+                    </select>
+                </label>
+                <label class="review-field">
+                    <span>Prompt Family</span>
+                    <input id="custom-family" type="text" value="custom_operator" />
+                </label>
+                <label class="review-field">
+                    <span>Creativity Type</span>
+                    <input id="custom-creativity-type" type="text" value="custom" />
+                </label>
+                <label class="review-field">
+                    <span>Hypothesis ID</span>
+                    <input id="custom-hypothesis" type="text" placeholder="optional" />
+                </label>
+            </div>
+            <label class="review-field review-field-block">
+                <span>Prompt</span>
+                <textarea id="custom-prompt" rows="4" placeholder="Write the experiment prompt you want the lab to run."></textarea>
+            </label>
+            <label class="review-field review-field-block">
+                <span>Constraints (one per line)</span>
+                <textarea id="custom-constraints" rows="4" placeholder="Optional formal or semantic constraints, one per line."></textarea>
+            </label>
+            <div class="modal-review-actions">
+                <button class="btn btn-start" onclick="runCustomExperiment()">Run Custom Experiment</button>
+                <div class="custom-runner-status" id="custom-runner-status"></div>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Experiments</div>
+                <div class="stat-value green" id="stat-experiments">0</div>
+                <div class="stat-sub"><span id="stat-kept">0</span> kept &middot; <span id="stat-discarded">0</span> disc &middot; <span id="stat-promoted">0</span> promoted</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Best Score</div>
+                <div class="stat-value" id="stat-best">0.00</div>
+                <div class="stat-sub"><span id="stat-baseline">--</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Improvement</div>
+                <div class="stat-value green" id="stat-improvement">--</div>
+                <div class="stat-sub" id="stat-improvement-label">recent &mu; vs early &mu;</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Cost</div>
+                <div class="stat-value yellow" id="stat-cost">$0.00</div>
+                <div class="cost-bar-container">
+                    <div class="cost-bar" id="cost-bar" style="width: 0%; background: var(--green);"></div>
+                </div>
+                <div class="stat-sub">of $<span id="stat-cap">50</span> cap</div>
+            </div>
+        </div>
+
+        <div class="section-label">Score Dimensions (Current Best)</div>
+        <div class="dimensions-grid">
+            <div class="dimension-card">
+                <div class="dimension-label">Novelty</div>
+                <div class="dimension-value" id="dim-novelty">--</div>
+                <div class="dimension-bar"><div class="dimension-bar-fill" id="bar-novelty" style="width: 0%"></div></div>
+            </div>
+            <div class="dimension-card">
+                <div class="dimension-label">Surprise</div>
+                <div class="dimension-value" id="dim-surprise">--</div>
+                <div class="dimension-bar"><div class="dimension-bar-fill" id="bar-surprise" style="width: 0%"></div></div>
+            </div>
+            <div class="dimension-card">
+                <div class="dimension-label">Value</div>
+                <div class="dimension-value" id="dim-value">--</div>
+                <div class="dimension-bar"><div class="dimension-bar-fill" id="bar-value" style="width: 0%"></div></div>
+            </div>
+            <div class="dimension-card">
+                <div class="dimension-label">Elaboration</div>
+                <div class="dimension-value" id="dim-elaboration">--</div>
+                <div class="dimension-bar"><div class="dimension-bar-fill" id="bar-elaboration" style="width: 0%"></div></div>
+            </div>
+            <div class="dimension-card">
+                <div class="dimension-label">Coherence</div>
+                <div class="dimension-value" id="dim-coherence">--</div>
+                <div class="dimension-bar"><div class="dimension-bar-fill" id="bar-coherence" style="width: 0%"></div></div>
+            </div>
+        </div>
+
+        <div class="chart-state-row">
+            <div>
+                <div class="section-label">Score Over Time</div>
+                <div class="chart-container">
+                    <div class="chart-canvas-wrap"><canvas id="score-chart"></canvas></div>
+                </div>
+            </div>
+            <div>
+                <div class="section-label">Current State</div>
+                <div class="state-panel">
+                    <div class="state-item"><span class="state-key">State: </span><span class="state-val" id="state-running">idle</span></div>
+                    <div class="state-item"><span class="state-key">Lane: </span><span class="state-val" id="state-lane">--</span></div>
+                    <div class="state-item"><span class="state-key">Track: </span><span class="state-val" id="state-track">--</span></div>
+                    <div class="state-item"><span class="state-key">Experiment: </span><span class="state-val" id="state-experiment">#--</span></div>
+                    <div class="state-item"><span class="state-key">Updated: </span><span class="state-val" id="state-updated">--</span></div>
+                </div>
+                <div class="section-label" style="margin-top: 16px;">Trend Statistics</div>
+                <div class="state-panel" id="trend-details"><span class="state-key">Waiting for data...</span></div>
+            </div>
+        </div>
+
+        <div class="section-label">Research Analysis <span class="history-hint">(first-pass read on where creativity helps or hurts)</span></div>
+        <div class="analysis-summary-card">
+            <div class="analysis-title">Twice-Daily Readout</div>
+            <div class="analysis-body" id="analysis-summary">Waiting for data...</div>
+        </div>
+        <div class="analysis-summary-card">
+            <div class="analysis-title">Learning Snapshot</div>
+            <div class="analysis-body" id="analysis-learning-snapshot">Waiting for data...</div>
+        </div>
+        <div class="recommendation-grid">
+            <div class="recommendation-card">
+                <div class="analysis-title">Scale</div>
+                <div class="analysis-body" id="analysis-scale">Waiting for data...</div>
+            </div>
+            <div class="recommendation-card">
+                <div class="analysis-title">Watch</div>
+                <div class="analysis-body" id="analysis-watch">Waiting for data...</div>
+            </div>
+            <div class="recommendation-card">
+                <div class="analysis-title">Stop</div>
+                <div class="analysis-body" id="analysis-stop">Waiting for data...</div>
+            </div>
+            <div class="recommendation-card">
+                <div class="analysis-title">Open Question</div>
+                <div class="analysis-body" id="analysis-question">Waiting for data...</div>
+            </div>
+        </div>
+        <div class="analysis-grid">
+            <div class="analysis-card">
+                <div class="analysis-title">Hypotheses By Family</div>
+                <div class="analysis-body" id="analysis-hypotheses">Waiting for data...</div>
+            </div>
+            <div class="analysis-card">
+                <div class="analysis-title">Creativity vs Utility / Straightforwardness</div>
+                <div class="analysis-body" id="analysis-balance">Waiting for data...</div>
+            </div>
+            <div class="analysis-card">
+                <div class="analysis-title">Critique Delta</div>
+                <div class="analysis-body" id="analysis-paired">Waiting for data...</div>
+            </div>
+            <div class="analysis-card">
+                <div class="analysis-title">Business Creativity Tax</div>
+                <div class="analysis-body" id="analysis-tax">Waiting for data...</div>
+            </div>
+            <div class="analysis-card">
+                <div class="analysis-title">Current Champions</div>
+                <div class="analysis-body" id="analysis-champions">Waiting for data...</div>
+            </div>
+            <div class="analysis-card">
+                <div class="analysis-title">Policy Effects</div>
+                <div class="analysis-body" id="analysis-policy-effects">Waiting for data...</div>
+            </div>
+            <div class="analysis-card">
+                <div class="analysis-title">Policy Validation</div>
+                <div class="analysis-body" id="analysis-policy-validation">Waiting for data...</div>
+            </div>
+            <div class="analysis-card">
+                <div class="analysis-title">Evaluator Diagnostics</div>
+                <div class="analysis-body" id="analysis-diagnostics">Waiting for data...</div>
+            </div>
+            <div class="analysis-card">
+                <div class="analysis-title">Protocol Reliability</div>
+                <div class="analysis-body" id="analysis-protocol-reliability">Waiting for data...</div>
+            </div>
+            <div class="analysis-card">
+                <div class="analysis-title">Human Calibration</div>
+                <div class="analysis-body" id="analysis-human-calibration">Waiting for data...</div>
+            </div>
+            <div class="analysis-card">
+                <div class="analysis-title">Constraint Verifier</div>
+                <div class="analysis-body" id="analysis-constraint-verifier">Waiting for data...</div>
+            </div>
+            <div class="analysis-card">
+                <div class="analysis-title">Calibration Metrics</div>
+                <div class="analysis-body" id="analysis-calibration-metrics">Waiting for data...</div>
+            </div>
+            <div class="analysis-card">
+                <div class="analysis-title">Disagreement Queue</div>
+                <div class="analysis-body" id="analysis-disagreement-queue">Waiting for data...</div>
+            </div>
+            <div class="analysis-card">
+                <div class="analysis-title">Policy Ledger</div>
+                <div class="analysis-body" id="analysis-policy-ledger">Waiting for data...</div>
+            </div>
+        </div>
+
+        <div class="section-label">Experiment History <span class="history-hint">(click row to inspect &middot; CTRL = no-critique control)</span></div>
+        <div class="history-table-wrap">
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Score</th>
+                        <th>Nov</th>
+                        <th>Sur</th>
+                        <th>Val</th>
+                        <th>Elab</th>
+                        <th>Coh</th>
+                        <th>Lane</th>
+                        <th>Balance</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody id="history-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+        <div class="modal" onclick="event.stopPropagation()">
+            <h3 id="modal-title">Experiment #--</h3>
+            <div class="modal-meta" id="modal-meta"></div>
+            <div class="modal-balance" id="modal-balance" style="display:none;"></div>
+            <div class="modal-section">
+                <div class="modal-section-label">Prompt</div>
+                <div class="modal-section-content" id="modal-prompt"></div>
+            </div>
+            <div class="modal-section">
+                <div class="modal-section-label">Artifact</div>
+                <div class="modal-section-content" id="modal-artifact"></div>
+            </div>
+            <div class="modal-section" id="modal-provenance-section" style="display:none;">
+                <div class="modal-section-label">Provenance</div>
+                <div class="modal-section-content" id="modal-provenance"></div>
+            </div>
+            <div class="modal-section">
+                <div class="modal-section-label">Human Calibration</div>
+                <div class="modal-review-intro" id="modal-review-intro">Score this artifact before revealing the model evaluation. Use the 1-5 questions for your fast judgment, then optionally add 1-10 dimension scores to compare directly with MUSE.</div>
+                <div class="modal-review-status" id="modal-review-status" style="display:none;"></div>
+                <div class="modal-review-grid">
+                    <label class="review-field">
+                        <span id="review-interesting-label">Interesting (1-5)</span>
+                        <select id="review-interesting">
+                            <option value="">Select</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                        </select>
+                    </label>
+                    <label class="review-field">
+                        <span>Effective (1-5)</span>
+                        <select id="review-effective">
+                            <option value="">Select</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                        </select>
+                    </label>
+                    <label class="review-field">
+                        <span>Constraint Fit (1-5)</span>
+                        <select id="review-constraint-fit">
+                            <option value="">Select</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                        </select>
+                    </label>
+                    <label class="review-field">
+                        <span>Worth Saving (1-5)</span>
+                        <select id="review-worth-saving">
+                            <option value="">Select</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="modal-section-label">Optional Direct Comparison To MUSE</div>
+                <div class="modal-review-grid">
+                    <label class="review-field">
+                        <span>Novelty (1-10)</span>
+                        <input id="review-novelty" type="number" min="1" max="10" />
+                    </label>
+                    <label class="review-field">
+                        <span>Surprise (1-10)</span>
+                        <input id="review-surprise" type="number" min="1" max="10" />
+                    </label>
+                    <label class="review-field">
+                        <span>Value (1-10)</span>
+                        <input id="review-value" type="number" min="1" max="10" />
+                    </label>
+                    <label class="review-field">
+                        <span>Elaboration (1-10)</span>
+                        <input id="review-elaboration" type="number" min="1" max="10" />
+                    </label>
+                    <label class="review-field">
+                        <span>Coherence (1-10)</span>
+                        <input id="review-coherence" type="number" min="1" max="10" />
+                    </label>
+                </div>
+                <label class="review-field review-field-block">
+                    <span>Best Part</span>
+                    <textarea id="review-best-part" rows="2"></textarea>
+                </label>
+                <label class="review-field review-field-block">
+                    <span>Missed Opportunity</span>
+                    <textarea id="review-missed-opportunity" rows="3"></textarea>
+                </label>
+                <label class="review-field review-field-block">
+                    <span>Socratic Question</span>
+                    <textarea id="review-socratic-question" rows="3"></textarea>
+                </label>
+                <div class="modal-review-actions">
+                    <button class="btn-refresh" id="review-save-button" onclick="saveHumanReview()">Save Human Review</button>
+                    <button class="btn-refresh" id="review-reveal-button" onclick="toggleModelEvaluation()">Reveal Model Evaluation</button>
+                </div>
+            </div>
+            <div class="modal-model-eval hidden" id="modal-model-eval">
+                <div class="modal-constraint-status" id="modal-constraints" style="display:none;"></div>
+                <div class="modal-review-comparison" id="modal-review-comparison" style="display:none;"></div>
+                <div class="modal-scores" id="modal-scores"></div>
+                <div class="modal-scores" id="modal-holdout" style="display:none;"></div>
+                <div class="modal-section">
+                    <div class="modal-section-label">Critique</div>
+                    <div class="modal-section-content" id="modal-critique"></div>
+                </div>
+            </div>
+            <div class="modal-section">
+                <div class="modal-section-label">Process Trace</div>
+                <div class="modal-section-content" id="modal-trace"></div>
+            </div>
+            <div class="modal-section" id="modal-verifier-section" style="display:none;">
+                <div class="modal-section-label">Verifier</div>
+                <div class="modal-section-content" id="modal-verifier"></div>
+            </div>
+            <div class="modal-section" id="modal-error-section" style="display:none;">
+                <div class="modal-section-label">Error Traceback</div>
+                <div class="modal-section-content modal-error" id="modal-error"></div>
+            </div>
+            <button class="modal-close" onclick="document.getElementById('modal-overlay').classList.remove('active')">Close</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="council-modal-overlay" onclick="closeCouncilModal(event)">
+        <div class="modal council-modal" onclick="event.stopPropagation()">
+            <h3 id="council-modal-title">Lab Research Council</h3>
+            <div class="modal-meta" id="council-modal-meta"></div>
+
+            <div class="recommendation-grid council-grid">
+                <div class="recommendation-card">
+                    <div class="analysis-title">Confidence</div>
+                    <div class="analysis-body" id="council-confidence">--</div>
+                </div>
+                <div class="recommendation-card">
+                    <div class="analysis-title">Strongest Finding</div>
+                    <div class="analysis-body" id="council-strongest">--</div>
+                </div>
+                <div class="recommendation-card">
+                    <div class="analysis-title">Recommendation</div>
+                    <div class="analysis-body" id="council-recommendation">--</div>
+                </div>
+                <div class="recommendation-card">
+                    <div class="analysis-title">Next Experiment</div>
+                    <div class="analysis-body" id="council-next">--</div>
+                </div>
+            </div>
+
+            <div class="modal-section">
+                <div class="modal-section-label">Stop Doing</div>
+                <div class="modal-section-content" id="council-stop"></div>
+            </div>
+            <div class="modal-section">
+                <div class="modal-section-label">Evaluator Trust</div>
+                <div class="modal-section-content" id="council-evaluator"></div>
+            </div>
+            <div class="modal-section">
+                <div class="modal-section-label">Protocol Assessment</div>
+                <div class="modal-section-content" id="council-protocol"></div>
+            </div>
+            <div class="modal-section">
+                <div class="modal-section-label">Research Memo</div>
+                <div class="modal-section-content" id="council-memo"></div>
+            </div>
+
+            <button class="modal-close" onclick="document.getElementById('council-modal-overlay').classList.remove('active')">Close</button>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

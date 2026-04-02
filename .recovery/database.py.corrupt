@@ -1,0 +1,500 @@
+import aiosqlite
+import json
+import math
+import os
+
+DB_PATH = os.path.join(os.path.dirname(__file__), "creativity_lab.db")
+HOLDOUT_SCORERS = ("critic_holdout", "hermes")
+
+
+def _mean(values):
+    vals = [float(v) for v in values if v is not None]
+    if not vals:
+        return None
+    return sum(vals) / len(vals)
+
+
+def _correlation(xs, ys):
+    return _pearson_correlation(xs, ys)
+
+
+def _safe_json_loads(value, default=None):
+    if value is None:
+        return default
+    if not isinstance(value, str):
+        return value
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        return default
+
+
+def _pearson_correlation(xs, ys):
+    pairs = [(float(x), float(y)) for x, y in zip(xs, ys) if x is not None and y is not None]
+    n = len(pairs)
+    if n < 2:
+        return None
+    mean_x = sum(x for x, _ in pairs) / n
+    mean_y = sum(y for _, y in pairs) / n
+    num = sum((x - mean_x) * (y - mean_y) for x, y in pairs)
+    den_x = math.sqrt(sum((x - mean_x) ** 2 for x, _ in pairs))
+    den_y = math.sqrt(sum((y - mean_y) ** 2 for _, y in pairs))
+    if den_x == 0 or den_y == 0:
+        return None
+    return num / (den_x * den_y)
+
+
+def _stddev(values):
+    vals = [float(v) for v in values if v is not None]
+    n = len(vals)
+    if n < 2:
+        return 0.0
+    mean = sum(vals) / n
+    return math.sqrt(sum((v - mean) ** 2 for v in vals) / (n - 1))
+
+
+def _dimension_diagnostics(rows, dims):
+    correlations = []
+    abs_corrs = []
+    for idx, left in enumerate(dims):
+        for right in dims[idx + 1:]:
+            corr = _pearson_correlation(
+                [row.get(left) for row in rows],
+                [row.get(right) for row in rows],
+            )
+            correlations.append({
+                "left": left,
+                "right": right,
+                "correlation": corr,
+            })
+            if corr is not None:
+                abs_corrs.append(abs(corr))
+
+    return {
+        "pairwise": correlations,
+        "halo_index": (sum(abs_corrs) / len(abs_corrs)) if abs_corrs else None,
+    }
+
+
+def _repeatability_summary(rows, limit=6):
+    grouped = {}
+    for row in rows:
+        key = (row.get("lane"), row.get("prompt"), row.get("condition"))
+        grouped.setdefault(key, []).append(row)
+
+    summaries = []
+    for (lane, prompt, condition), bucket in grouped.items():
+        composites = [row.get("composite") for row in bucket if row.get("composite") is not None]
+        if len(composites) < 2:
+            continue
+        summaries.append({
+            "lane": lane,
+            "prompt": prompt,
+            "condition": condition,
+            "trials": len(composites),
+            "mean_composite": sum(composites) / len(composites),
+            "composite_range": max(composites) - min(composites),
+            "composite_stddev": _stddev(composites),
+        })
+
+    summaries.sort(key=lambda row: (row["composite_range"], row["composite_stddev"]), reverse=True)
+    return summaries[:limit]
+
+
+def _baseline_stability(rows, baseline_prompts):
+    summaries = []
+    for lane, prompt in baseline_prompts.items():
+        bucket = [
+            row for row in rows
+            if row.get("lane") == lane and row.get("condition") == "critique_off" and row.get("prompt") == prompt
+        ]
+        composites = [row.get("composite") for row in bucket if row.get("composite") is not None]
+        if not composites:
+            continue
+        summaries.append({
+            "lane": lane,
+            "prompt": prompt,
+            "trials": len(composites),
+            "mean_composite": sum(composites) / len(composites),
+            "composite_range": max(composites) - min(composites) if len(composites) > 1 else 0.0,
+            "composite_stddev": _stddev(composites),
+        })
+    return summaries
+
+
+def _build_evaluator_warnings(diagnostics):
+    warnings = []
+    overall = diagnostics.get("overall") or {}
+    halo_index = overall.get("halo_index")
+    if halo_index is not None and halo_index >= 0.8:
+        warnings.append("Score dimensions are highly correlated, so the rubric may be collapsing into a single latent preference.")
+    elif halo_index is not None and halo_index >= 0.65:
+        warnings.append("Score dimensions are moderately correlated; check whether the rubric is separating meaningful traits or mostly expressing a halo effect.")
+
+    repeatability = diagnostics.get("repeatability") or []
+    if repeatability:
+        worst = repeatability[0]
+        if worst.get("composite_range", 0) >= 1.0:
+            warnings.append("Repeated runs on the same prompt/condition show at least one composite swing above 1.0, so test-retest stability is still weak.")
+
+    baseline = diagnostics.get("baseline_stability") or []
+    unstable_baselines = [row for row in baseline if (row.get("composite_range") or 0) >= 0.75]
+    if unstable_baselines:
+        warnings.append("Baseline canaries are moving materially across repeats, which makes evaluator and generation drift harder to distinguish.")
+
+    agreement = diagnostics.get("muse_critic_agreement") or {}
+    if (agreement.get("mean_divergence") or 0) >= 1.0:
+        warnings.append("MUSE and HERMES disagreement is elevated enough that promotion decisions should probably require human review.")
+
+    if not warnings:
+        warnings.append("Evaluator diagnostics are currently informational only; sample size is still small, so treat clean readings as provisional.")
+    return warnings
+
+
+def _build_human_calibration_summary(rows):
+    if not rows:
+        return {
+            "headline": "No human calibration reviews yet.",
+            "lane_summaries": [],
+            "priority": None,
+        }
+
+    lane_summaries = []
+    for lane in ("creative", "business"):
+        lane_rows = [row for row in rows if row.get("lane") == lane]
+        if not lane_rows:
+            continue
+        dimension_means = {}
+        for key in ("novelty", "surprise", "value", "elaboration", "coherence"):
+            vals = [row.get(f"delta_{key}") for row in lane_rows if row.get(f"delta_{key}") is not None]
+            dimension_means[key] = (sum(vals) / len(vals)) if vals else None
+
+        biggest_gap = None
+        ranked = [
+            (dim, value) for dim, value in dimension_means.items()
+            if value is not None
+        ]
+        if ranked:
+            biggest_gap = max(ranked, key=lambda item: abs(item[1]))
+
+        lane_summaries.append({
+            "lane": lane,
+            "sample_size": len(lane_rows),
+            "mean_fastpass": sum(row.get("fastpass_mean") or 0 for row in lane_rows) / len(lane_rows),
+            "mean_muse_composite": sum(row.get("muse_composite") or 0 for row in lane_rows) / len(lane_rows),
+            "mean_hermes_composite": (
+                sum(row.get("hermes_composite") for row in lane_rows if row.get("hermes_composite") is not None) /
+                len([row for row in lane_rows if row.get("hermes_composite") is not None])
+            ) if any(row.get("hermes_composite") is not None for row in lane_rows) else None,
+            "dimension_deltas": dimension_means,
+            "biggest_gap_dimension": biggest_gap[0] if biggest_gap else None,
+            "biggest_gap_value": biggest_gap[1] if biggest_gap else None,
+        })
+
+    priority = None
+    if lane_summaries:
+        priority_lane = max(
+            lane_summaries,
+            key=lambda row: abs(row.get("biggest_gap_value") or 0),
+        )
+        if priority_lane.get("biggest_gap_dimension"):
+            priority = {
+                "lane": priority_lane["lane"],
+                "dimension": priority_lane["biggest_gap_dimension"],
+                "delta": priority_lane["biggest_gap_value"],
+            }
+
+    if priority:
+        headline = (
+            f"Human calibration currently disagrees most on {priority['lane']} {priority['dimension']} "
+            f"({priority['delta']:+.2f} human minus MUSE)."
+        )
+    else:
+        headline = "Human calibration is available, but there is not enough overlap yet to identify the main evaluator mismatch."
+
+    return {
+        "headline": headline,
+        "lane_summaries": lane_summaries,
+        "priority": priority,
+    }
+
+
+def _build_verifier_summary(rows):
+    if not rows:
+        return {
+            "headline": "No verifier-tracked runs yet.",
+            "totals": {},
+            "families": [],
+        }
+
+    totals = {
+        "tracked_runs": len(rows),
+        "machine_checked_runs": sum(1 for row in rows if row.get("machine_checked")),
+        "passed": sum(1 for row in rows if row.get("verification_status") == "passed"),
+        "passed_after_repair": sum(1 for row in rows if row.get("verification_status") == "passed_after_repair"),
+        "failed_before_repair": sum(1 for row in rows if row.get("verification_status") == "failed_before_repair"),
+        "failed_after_repair": sum(1 for row in rows if row.get("verification_status") == "failed_after_repair"),
+        "repair_parse_failed": sum(1 for row in rows if row.get("verification_status") == "repair_parse_failed"),
+        "constraint_fails": sum(1 for row in rows if row.get("status") == "constraint_fail"),
+    }
+    tracked = totals["tracked_runs"] or 1
+    machine_checked = totals["machine_checked_runs"] or 1
+    totals["repair_rate"] = (totals["passed_after_repair"] + totals["failed_after_repair"] + totals["repair_parse_failed"]) / tracked
+    totals["constraint_fail_rate"] = totals["constraint_fails"] / tracked
+    totals["machine_checked_share"] = totals["machine_checked_runs"] / tracked
+    totals["rescue_rate"] = totals["passed_after_repair"] / machine_checked
+
+    family_groups = {}
+    for row in rows:
+        family = row.get("prompt_family") or "unclassified"
+        family_groups.setdefault(family, []).append(row)
+
+    families = []
+    for family, bucket in family_groups.items():
+        tracked_family = len(bucket)
+        machine_family = sum(1 for row in bucket if row.get("machine_checked"))
+        families.append({
+            "prompt_family": family,
+            "tracked_runs": tracked_family,
+            "machine_checked_runs": machine_family,
+            "passed_after_repair": sum(1 for row in bucket if row.get("verification_status") == "passed_after_repair"),
+            "failed_after_repair": sum(1 for row in bucket if row.get("verification_status") == "failed_after_repair"),
+            "constraint_fails": sum(1 for row in bucket if row.get("status") == "constraint_fail"),
+        })
+    families.sort(key=lambda row: (row["constraint_fails"], row["failed_after_repair"], row["tracked_runs"]), reverse=True)
+
+    headline = (
+        f"Verifier is tracking {totals['tracked_runs']} runs, with {totals['passed_after_repair']} rescued after repair "
+        f"and constraint-fail rate {totals['constraint_fail_rate']:.0%} across tracked runs."
+    )
+    return {
+        "headline": headline,
+        "totals": totals,
+        "families": families[:6],
+    }
+
+
+def _classify_creativity_overreach(row):
+    gap = row.get("balance_gap")
+    composite = row.get("composite")
+    novelty = row.get("novelty")
+    surprise = row.get("surprise")
+    status = row.get("status")
+
+    if composite is None:
+        return False
+
+    expressive_pressure = _mean([novelty, surprise])
+    counterpart = row.get("balance_counterpart")
+    pressure_gap = None
+    if expressive_pressure is not None and counterpart is not None:
+        pressure_gap = expressive_pressure - counterpart
+
+    # If the model is showing visible expressive ambition but still breaking the task's hard discipline,
+    # count that as creativity overreach even when novelty does not exceed usefulness on average.
+    if status == "constraint_fail" and expressive_pressure is not None and expressive_pressure >= 5.5:
+        return True
+
+    if row.get("lane") == "business":
+        if pressure_gap is None:
+            return False
+        return pressure_gap > 0.25 and composite < 7.5
+
+    if pressure_gap is not None and pressure_gap > 0.5 and composite < 7.0:
+        return True
+    if gap is not None and gap > 0.5 and composite < 7.0:
+        return True
+    return False
+
+
+def _build_calibration_metrics(rows, verifier_rows, paired_rows, calibration_rows):
+    if not rows:
+        return {
+            "overview": {},
+            "families": [],
+            "headline": "No calibration metrics yet.",
+        }
+
+    family_groups = {}
+    for row in rows:
+        family = row.get("prompt_family") or "unclassified"
+        lane = row.get("lane") or "creative"
+        family_groups.setdefault((lane, family), []).append(row)
+
+    verifier_by_family = {}
+    for row in verifier_rows:
+        family = row.get("prompt_family") or "unclassified"
+        verifier_by_family.setdefault(family, []).append(row)
+
+    paired_by_family = {}
+    for row in paired_rows:
+        family = row.get("prompt_family") or "unclassified"
+        paired_by_family.setdefault(family, []).append(row)
+
+    family_metrics = []
+    for (lane, family), bucket in family_groups.items():
+        overreach_rate = _mean(1.0 if _classify_creativity_overreach(row) else 0.0 for row in bucket)
+        novelty_gap = _mean(row.get("balance_gap") for row in bucket)
+
+        verifier_bucket = verifier_by_family.get(family, [])
+        machine_checked = [
+            row for row in verifier_bucket
+            if row.get("machine_checked")
+        ]
+        constraint_recovery_rate = (
+            sum(1 for row in machine_checked if row.get("verification_status") == "passed_after_repair") / len(machine_checked)
+        ) if machine_checked else None
+
+        paired_bucket = paired_by_family.get(family, [])
+        critique_help_rate = (
+            sum(1 for row in paired_bucket if (row.get("composite_delta") or 0) > 0.25) / len(paired_bucket)
+        ) if paired_bucket else None
+
+        family_metrics.append({
+            "lane": lane,
+            "prompt_family": family,
+            "sample_size": len(bucket),
+            "overreach_rate": overreach_rate,
+            "constraint_recovery_rate": constraint_recovery_rate,
+            "critique_help_rate": critique_help_rate,
+            "novelty_gap": novelty_gap,
+        })
+
+    family_metrics.sort(
+        key=lambda row: (
+            row.get("overreach_rate") or 0,
+            abs(row.get("novelty_gap") or 0),
+            row.get("sample_size") or 0,
+        ),
+        reverse=True,
+    )
+
+    agreement_flags = []
+    for row in calibration_rows:
+        worth_saving = row.get("worth_saving")
+        muse_composite = row.get("muse_composite")
+        if worth_saving is None or muse_composite is None:
+            continue
+        human_keep = worth_saving >= 4
+        muse_keep = muse_composite >= 6.5
+        agreement_flags.append(1.0 if human_keep == muse_keep else 0.0)
+
+    machine_checked_rows = [row for row in verifier_rows if row.get("machine_checked")]
+    critique_eligible = [row for row in paired_rows if row.get("composite_delta") is not None]
+
+    overview = {
+        "tracked_runs": len(rows),
+        "creativity_overreach_rate": _mean(
+            1.0 if _classify_creativity_overreach(row) else 0.0 for row in rows
+        ),
+        "unknown_constraint_rate": _mean(
+            1.0 if row.get("constraints_met") is None else 0.0 for row in rows
+        ),
+        "constraint_recovery_rate": (
+            sum(1 for row in machine_checked_rows if row.get("verification_status") == "passed_after_repair") / len(machine_checked_rows)
+        ) if machine_checked_rows else None,
+        "critique_help_rate": (
+            sum(1 for row in critique_eligible if (row.get("composite_delta") or 0) > 0.25) / len(critique_eligible)
+        ) if critique_eligible else None,
+        "mean_novelty_gap": _mean(row.get("balance_gap") for row in rows),
+        "human_agreement_rate": _mean(agreement_flags),
+    }
+
+    headline = (
+        f"Calibration readout across {len(rows)} scored runs: overreach {overview['creativity_overreach_rate']:.0%}"
+        if overview.get("creativity_overreach_rate") is not None
+        else "Calibration readout is waiting for enough scored runs."
+    )
+    if overview.get("constraint_recovery_rate") is not None:
+        headline += f", verifier rescue {overview['constraint_recovery_rate']:.0%}"
+    if overview.get("unknown_constraint_rate") is not None:
+        headline += f", unknown constraints {overview['unknown_constraint_rate']:.0%}"
+    if overview.get("critique_help_rate") is not None:
+        headline += f", critique-help {overview['critique_help_rate']:.0%}."
+    else:
+        headline += "."
+
+    return {
+        "overview": overview,
+        "families": family_metrics[:8],
+        "headline": headline,
+    }
+
+
+def _build_learning_snapshot(rows, paired_rows, verifier_rows, calibration_rows):
+    if not rows:
+        return {
+            "headline": "No learning snapshot yet.",
+            "improved": "Need more scored runs before calling anything improved.",
+            "regressed": "No regression read yet.",
+            "still_noisy": "Sample size is too small for a stable judgment.",
+            "next_move": "Run a small paired batch in one family and compare critique-on versus critique-off.",
+        }
+
+    recent = rows[:10]
+    prior = rows[10:20]
+
+    def summarize_window(bucket):
+        return {
+            "composite": _mean(row.get("composite") for row in bucket),
+            "overreach": _mean(1.0 if _classify_creativity_overreach(row) else 0.0 for row in bucket),
+            "constraint_pass": _mean(1.0 if row.get("constraints_met") else 0.0 for row in bucket if row.get("constraints_met") is not None),
+        }
+
+    recent_summary = summarize_window(recent)
+    prior_summary = summarize_window(prior)
+
+    improved = "Recent runs are still too isolated to name a clear improvement."
+    regressed = "No clear regression yet."
+    still_noisy = "Human agreement is still too sparse to anchor the calibration story."
+
+    if prior:
+        overreach_delta = None
+        if recent_summary["overreach"] is not None and prior_summary["overreach"] is not None:
+            overreach_delta = recent_summary["overreach"] - prior_summary["overreach"]
+        constraint_delta = None
+        if recent_summary["constraint_pass"] is not None and prior_summary["constraint_pass"] is not None:
+            constraint_delta = recent_summary["constraint_pass"] - prior_summary["constraint_pass"]
+        composite_delta = None
+        if recent_summary["composite"] is not None and prior_summary["composite"] is not None:
+            composite_delta = recent_summary["composite"] - prior_summary["composite"]
+
+        if constraint_delta is not None and constraint_delta > 0.15:
+            improved = f"Constraint pass rate improved {constraint_delta:+.0%} in the latest window, which is the clearest sign of correction recognition."
+        elif overreach_delta is not None and overreach_delta < -0.10:
+            improved = f"Creativity overreach fell {abs(overreach_delta):.0%} in the latest window, suggesting slightly better calibration."
+        elif composite_delta is not None and composite_delta > 0.25:
+            improved = f"Mean composite improved {composite_delta:+.2f} in the latest window, though the cause still needs attribution."
+
+        if overreach_delta is not None and overreach_delta > 0.10:
+            regressed = f"Creativity overreach rose {overreach_delta:+.0%}, so the lab may still be rewarding flourish where it should be restrained."
+        elif constraint_delta is not None and constraint_delta < -0.15:
+            regressed = f"Constraint pass rate fell {constraint_delta:+.0%}, which suggests the correction loop is not stable yet."
+        elif composite_delta is not None and composite_delta < -0.25:
+            regressed = f"Mean composite fell {composite_delta:+.2f} in the latest window."
+
+    if paired_rows:
+        ambiguous = min(paired_rows, key=lambda row: abs(row.get("composite_delta") or 0))
+        still_noisy = (
+            f"Critique effect is still noisy in {ambiguous.get('prompt_family') or 'unclassified'} "
+            f"({(ambiguous.get('composite_delta') or 0):+.2f}), so that family still needs tighter paired testing."
+        )
+
+    if calibration_rows:
+        agreement = []
+        for row in calibration_rows:
+            worth_saving = row.get("worth_saving")
+            muse_composite = row.get("muse_composite")
+            if worth_saving is None or muse_composite is None:
+                continue
+            agreement.append(1.0 if (worth_saving >= 4) == (muse_composite >= 6.5) else 0.0)
+        agreement_rate = _mean(agreement)
+        if agreement_rate is not None and agreement_rate < 0.7:
+            still_noisy = (
+                f"Human versus MUSE save/discard agreement is only {agreement_rate:.0%}, "
+                "so evaluator trust is still the main source of uncertainty."
+            )
+
+    next_move = "Run one paired family with critique-on versus critique-off and compare overreach, constraint recovery, and human save/discard."
+    if verifier_rows:
+        worst_family = None

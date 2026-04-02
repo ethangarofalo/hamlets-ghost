@@ -1,0 +1,526 @@
+import asyncio
+import json
+import os
+import re
+
+from openai import AsyncOpenAI
+
+OPENAI_API_KEY=os.get...EY")
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
+OLLAMA_API_KEY=os.get...EY", "ollama")
+
+OPENAI_CLIENT = AsyncOpenAI(api_key=***
+OLLAMA_CLIENT = AsyncOpenAI(base_url=OLLAMA_BASE_URL, api_key=***
+
+GENESIS_BACKEND = os.getenv("GENESIS_BACKEND", "openai").lower()
+MUSE_BACKEND = os.getenv("MUSE_BACKEND", "openai").lower()
+HERMES_BACKEND = os.getenv("HERMES_BACKEND", os.getenv("HOLDOUT_BACKEND", "openai")).lower()
+COUNCIL_BACKEND = os.getenv("COUNCIL_BACKEND", "openai").lower()
+INTERLOCUTOR_BACKEND = os.getenv("INTERLOCUTOR_BACKEND", COUNCIL_BACKEND).lower()
+
+MODEL = os.getenv("GENESIS_MODEL", os.getenv("OPENAI_MODEL", "gpt-4.1-mini"))
+MUSE_MODEL = os.getenv("MUSE_MODEL", os.getenv("OPENAI_MODEL", "gpt-4.1-mini"))
+HERMES_MODEL = os.getenv("HERMES_MODEL", os.getenv("HOLDOUT_MODEL", os.getenv("OPENAI_HOLDOUT_MODEL", MUSE_MODEL)))
+COUNCIL_MODEL = os.getenv("COUNCIL_MODEL", os.getenv("OPENAI_MODEL", "gpt-4.1-mini"))
+INTERLOCUTOR_MODEL = os.getenv("INTERLOCUTOR_MODEL", COUNCIL_MODEL)
+GENESIS_PROTOCOL = os.getenv("GENESIS_PROTOCOL", "socratic").lower()
+GENESIS_BRANCH_COUNT = max(2, int(os.getenv("GENESIS_BRANCH_COUNT", "3")))
+GENESIS_BRANCH_MODEL = os.getenv("GENESIS_BRANCH_MODEL", MODEL)
+HERMES_GATE_ENABLED = os.getenv("HERMES_GATE_ENABLED", "1").strip().lower() not in ("0", "false", "no")
+HERMES_MIN_MUSE_COMPOSITE = float(os.getenv("HERMES_MIN_MUSE_COMPOSITE", "6.5"))
+HERMES_REQUIRE_CONSTRAINT_PASS = os.getenv("HERMES_REQUIRE_CONSTRAINT_PASS", "1").strip().lower() not in ("0", "false", "no")
+SCOUT_GATE_ENABLED = os.getenv("SCOUT_GATE_ENABLED", "0").strip().lower() not in ("0", "false", "no")
+
+OPENAI_PRICING = {
+    "gpt-5.1": {"input": 1.25, "output": 10.00},
+    "gpt-5.1-chat-latest": {"input": 1.25, "output": 10.00},
+    "gpt-5.4-mini": {"input": 0.75, "output": 4.50},
+    "gpt-4.1-mini": {"input": 0.40, "output": 1.60},
+    "gpt-4.1": {"input": 2.00, "output": 8.00},
+    "gpt-4o-mini": {"input": 0.15, "output": 0.60},
+    "gpt-4o": {"input": 2.50, "output": 10.00},
+}
+
+MODEL_REQUEST_TIMEOUT_SECONDS = float(os.getenv("MODEL_REQUEST_TIMEOUT_SECONDS", "60"))
+MODEL_MAX_RETRIES = max(1, int(os.getenv("MODEL_MAX_RETRIES", "2")))
+MODEL_RETRY_BACKOFF_SECONDS = float(os.getenv("MODEL_RETRY_BACKOFF_SECONDS", "0.5"))
+
+
+def _is_retryable_model_error(exc):
+    if isinstance(exc, (TimeoutError, OSError)):
+        return True
+    message = str(exc).lower()
+    retry_markers = (
+        "timeout",
+        "timed out",
+        "tempor",
+        "rate limit",
+        "overloaded",
+        "connection reset",
+        "connection aborted",
+        "connection refused",
+        "server error",
+        "service unavailable",
+        "transient",
+    )
+    return any(marker in message for marker in retry_markers)
+
+
+ROLE_CONFIG = {
+    "genesis": ("GENESIS", GENESIS_BACKEND, MODEL),
+    "genesis_branch": ("GENESIS_BRANCH", GENESIS_BACKEND, GENESIS_BRANCH_MODEL),
+    "muse": ("MUSE", MUSE_BACKEND, MUSE_MODEL),
+    "hermes": ("HERMES", HERMES_BACKEND, HERMES_MODEL),
+    "council": ("COUNCIL", COUNCIL_BACKEND, COUNCIL_MODEL),
+    "interlocutor": ("INTERLOCUTOR", INTERLOCUTOR_BACKEND, INTERLOCUTOR_MODEL),
+}
+
+CREATIVE_WEIGHTS = {
+    "novelty": 0.25,
+    "surprise": 0.20,
+    "value": 0.25,
+    "elaboration": 0.15,
+    "coherence": 0.15,
+}
+
+BUSINESS_WEIGHTS = {
+    "novelty": 0.18,
+    "surprise": 0.12,
+    "value": 0.18,
+    "elaboration": 0.10,
+    "coherence": 0.10,
+    "actionability": 0.14,
+    "brand_fit": 0.10,
+    "factual_reliability": 0.08,
+}
+
+GENESIS_SYSTEM = """You are GENESIS, a creative generator in the AI Creativity Lab.
+
+Your role is to produce creative artifacts — poems, stories, prose, arguments, inventions — in response to prompts with specific constraints.
+
+Guidelines:
+- Take the constraints seriously. Satisfying hard constraints while remaining surprising is the goal.
+- Do not be safe or generic. Reach for the unexpected.
+- When given feedback from a prior round, integrate it — but do not merely comply. Push further.
+- If the prompt asks you to invent a new form or framework, be genuinely ambitious. Do not relabel existing things.
+
+You must respond with valid JSON in this exact format:
+{
+  "artifact": "<your creative output as a string>",
+  "process_trace": {
+    "drafts_considered": <number of approaches you considered>,
+    "rejection_reasons": ["<why you rejected alternative approaches>"],
+    "strategy_notes": "<what strategy you chose and why>"
+  }
+}
+
+Return ONLY the JSON. No markdown fences, no commentary outside the JSON."""
+
+GENESIS_DRAFT_SYSTEM = """You are GENESIS, the generator in the AI Creativity Lab.
+
+Your job in this step is to produce a serious first draft, not a finished artifact.
+You should surface multiple viable approaches and commit to one draft that can withstand critique.
+
+Respond with valid JSON in this exact format:
+{
+  "draft": "<first full draft as a string>",
+  "intent": "<what the draft is trying to achieve>",
+  "alternatives": [
+    {
+      "approach": "<alternative strategy you considered>",
+      "why_not_chosen": "<why you did not pursue it yet>"
+    }
+  ]
+}
+
+Return ONLY the JSON."""
+
+GENESIS_BRANCHING_SYSTEM = """You are GENESIS, exploring multiple candidate directions in the AI Creativity Lab.
+
+Your job is to generate several meaningfully different branches before committing.
+Do not produce near-duplicates. Make the branches genuinely compete on form, tone, logic, or strategic framing.
+Avoid malformed tokens, non-ASCII text, or made-up names unless the prompt truly requires them.
+
+Respond with valid JSON in this exact format:
+{
+  "candidates": [
+    {
+      "id": "A",
+      "draft": "<candidate draft as a string>",
+      "strategy": "<what this branch is trying to do>",
+      "tradeoffs": "<what this branch gains and what it risks>"
+    }
+  ]
+}
+
+Return ONLY the JSON."""
+
+GENESIS_SELECTION_SYSTEM = """You are GENESIS, selecting among competing candidate branches in the AI Creativity Lab.
+
+Your job is to choose one candidate under tradeoff, not average them together.
+Pick the branch with the best chance of producing a strong final artifact under the actual prompt and constraints.
+You must explain why the chosen branch wins and why the others are being abandoned.
+
+Respond with valid JSON in this exact format:
+{
+  "selected_id": "<candidate id>",
+  "draft": "<the selected draft>",
+  "intent": "<what the selected branch is trying to achieve>",
+  "selection_rationale": "<why this branch beats the others>",
+  "rejected_candidates": [
+    {
+      "id": "<candidate id>",
+      "why_rejected": "<why this branch was not chosen>"
+    }
+  ]
+}
+
+Return ONLY the JSON."""
+
+SOCRATIC_INTERLOCUTOR_SYSTEM = """You are a rigorous Socratic interlocutor in the AI Creativity Lab.
+
+You are not scoring the draft. Your job is to pressure-test it before it becomes a final artifact.
+Ask probing questions that force the generator to defend choices, confront weak spots, or revise the form.
+Prefer questions about tradeoffs, rejected alternatives, constraint handling, and what the current form cannot yet do.
+At least one question should check literal constraint compliance when the prompt contains formal requirements.
+
+Respond with valid JSON in this exact format:
+{
+  "question_1": "<question 1>",
+  "question_2": "<question 2>",
+  "question_3": "<question 3>",
+  "pressure_point_1": "<specific weakness or tension to address>",
+  "pressure_point_2": "<specific weakness or tension to address>",
+  "revision_goal_1": "<clear revision goal>",
+  "revision_goal_2": "<clear revision goal>"
+}
+
+Return ONLY the JSON."""
+
+GENESIS_REVISION_SYSTEM = """You are GENESIS, revising a draft after Socratic questioning.
+
+Your job is to answer the pressure with a stronger final artifact, not just explain yourself.
+Revise the work. If a question exposes a weak choice, fix it in the artifact.
+
+Respond with valid JSON in this exact format:
+{
+  "artifact": "<final revised artifact as a string>",
+  "revision_summary": "<high-level summary of the revision>",
+  "preserved_from_selected_branch": ["<specific idea, phrase family, or structural element you kept>"],
+  "changed_after_questioning": ["<specific weakness you changed after the questions>"],
+  "constraint_repairs": ["<literal constraint repair you made, if any>"],
+  "rejection_reasons": ["<real rejected option or revision path>"]
+}
+
+Return ONLY the JSON."""
+
+GENESIS_CONSTRAINT_REPAIR_SYSTEM = """You are GENESIS, performing a literal constraint-repair pass in the AI Creativity Lab.
+
+You are given a draft that may fail hard formal constraints.
+Your job is to minimally repair the artifact so it satisfies the listed verifier findings while preserving as much of the selected branch's strength, tone, and intent as possible.
+
+Do not explain at length. Fix the artifact.
+
+Respond with valid JSON in this exact format:
+{
+  "artifact": "<repaired artifact as a string>",
+  "repair_summary": "<brief summary of what you changed to satisfy the verifier>",
+  "constraint_repairs": ["<specific repair made>"]
+}
+
+Return ONLY the JSON."""
+
+MUSE_SYSTEM = """You are MUSE, the evaluator agent in the AI Creativity Lab.
+
+You score creative artifacts on five dimensions, each rated 1.0-10.0:
+
+1. NOVELTY: How different is this from known prior work? Does it feel genuinely new or like a recombination of familiar elements? Score harshly — most outputs are more derivative than they appear.
+
+2. SURPRISE: Does the output violate expectations in a way that, upon reflection, seems apt rather than random? A non sequitur is not surprising in the interesting sense. A metaphor that makes you see something differently is.
+Do NOT give high surprise merely because the premise is unusual, technically difficult, or densely specified. Once the premise is set, ask whether the execution still creates felt turns, discoveries, or reorientation.
+
+3. VALUE: Does the output accomplish something — solve a problem, produce aesthetic satisfaction, illuminate an idea? Is it worth reading/experiencing, or merely novel?
+Technical compliance alone is not value. In creative tasks, distinguish formal cleverness from emotional, aesthetic, or intellectual payoff.
+
+4. ELABORATION: Is the idea developed with specificity and depth, or is it a bare sketch? Does it commit to its premise?
+
+5. COHERENCE: Does the output hold together on its own terms? Do the parts serve the whole?
+For constrained pieces, do not confuse local sentence-level craft with whole-piece coherence. A set of individually strong moments can still fail to build one atmosphere, argument, or narrative.
+
+COMPOSITE SCORE = weighted average: Novelty(0.25) + Surprise(0.20) + Value(0.25) + Elaboration(0.15) + Coherence(0.15)
+
+You must also assess whether constraints were satisfied. Check each constraint individually. If ANY constraint is violated, constraints_met must be false.
+Interpret constraints literally, not generously. If the prompt says each line must also be a valid instruction, ask whether a human could realistically encounter that line in the target genre without needing metaphorical charity.
+
+IMPORTANT: Be a tough critic. A score of 5 means competent but unremarkable. A score of 7 means genuinely good. A score of 9+ should be rare — reserved for work that would impress a thoughtful human expert.
+Also keep the dimensions meaningfully separate. Novelty is not surprise. Elaboration is not value. Constraint satisfaction is not a substitute for any dimension.
+
+Respond with valid JSON in this exact format:
+{
+  "novelty": <float>,
+  "surprise": <float>,
+  "value": <float>,
+  "elaboration": <float>,
+  "coherence": <float>,
+  "composite": <float>,
+  "constraints_met": <true/false>,
+  "constraint_notes": "<which constraints were met/violated and why>",
+  "critique": "<2-3 sentences of specific, actionable critique>",
+  "keep": <true if composite >= 6.5 AND constraints_met, false otherwise>
+}
+
+Return ONLY the JSON. No markdown fences, no commentary outside the JSON."""
+
+MUSE_BUSINESS_SYSTEM = """You are MUSE, the evaluator agent in the AI Creativity Lab.
+
+You are evaluating a BUSINESS-LANE artifact. Score it on eight dimensions, each rated 1.0-10.0:
+
+1. NOVELTY: Is this fresh relative to the usual generic business copy?
+2. SURPRISE: Does it create an apt, strategically useful angle rather than a predictable one?
+Do NOT score surprise highly just because the idea is specific or elaborate. Surprise should reflect a genuinely non-obvious angle that still feels strategically apt.
+In business tasks, a clever phrase or unusual framing is not surprising if an experienced operator would still see it as standard persuasion, standard positioning, or standard support language.
+3. VALUE: Is the output worth using as-is or with minimal editing?
+In business tasks, value should track likely usefulness in a real workflow, not just polish or verbosity.
+4. ELABORATION: Is it specific enough to feel deliberate, not templated?
+5. COHERENCE: Does the output hold together and stay internally consistent?
+6. ACTIONABILITY: Could a real team use this output in a workflow immediately?
+7. BRAND_FIT: Does it match the implied audience, tone, and use case?
+8. FACTUAL_RELIABILITY: Does it avoid unsupported claims, invented facts, or risky overreach?
+For ideation and strategy tasks, reward non-obvious insights in novelty, but do not let novelty inflate surprise unless the angle changes how the reader sees the problem.
+For customer-facing or operational writing, novelty should usually be modest. If the output is mainly strong because it is humane, clear, or accountable, reward value and coherence instead of inflating novelty.
+
+COMPOSITE SCORE = weighted average:
+Novelty(0.18) + Surprise(0.12) + Value(0.18) + Elaboration(0.10) + Coherence(0.10)
++ Actionability(0.14) + Brand_fit(0.10) + Factual_reliability(0.08)
+
+You must also assess whether constraints were satisfied. Check each constraint individually. If ANY constraint is violated, constraints_met must be false.
+Interpret constraints literally. If the output is only "close enough" to the required business form or resolution path, mark the constraint as violated rather than guessing intent.
+
+IMPORTANT: Be a tough critic. A 5 is usable but ordinary. A 7 is clearly strong. A 9+ should be rare.
+Also keep the dimensions separate. Novelty is not surprise, and detail is not automatically value.
+
+Respond with valid JSON in this exact format:
+{
+  "novelty": <float>,
+  "surprise": <float>,
+  "value": <float>,
+  "elaboration": <float>,
+  "coherence": <float>,
+  "actionability": <float>,
+  "brand_fit": <float>,
+  "factual_reliability": <float>,
+  "composite": <float>,
+  "constraints_met": <true/false>,
+  "constraint_notes": "<which constraints were met/violated and why>",
+  "critique": "<2-3 sentences of specific, actionable critique>",
+  "keep": <true if composite >= 6.5 AND constraints_met, false otherwise>
+}
+
+Return ONLY the JSON. No markdown fences, no commentary outside the JSON."""
+
+HERMES_SYSTEM = """You are HERMES, an independent evaluator for the AI Creativity Lab.
+
+You provide a second opinion on creative artifacts. You have NO knowledge of prior evaluations.
+Score on the same five dimensions (1.0-10.0):
+1. NOVELTY  2. SURPRISE  3. VALUE  4. ELABORATION  5. COHERENCE
+Keep these dimensions separate. Do not treat unusual premises as automatically surprising, or technical constraint satisfaction as automatically valuable or coherent.
+Interpret constraints literally, not generously. If a dual-purpose line only works by poetic implication rather than as a valid example of the requested form, mark constraints unmet.
+
+COMPOSITE = Novelty(0.25) + Surprise(0.20) + Value(0.25) + Elaboration(0.15) + Coherence(0.15)
+
+Also assess whether constraints were met.
+
+Be honest and independent. Do not inflate scores.
+
+Respond with valid JSON:
+{
+  "novelty": <float>,
+  "surprise": <float>,
+  "value": <float>,
+  "elaboration": <float>,
+  "coherence": <float>,
+  "composite": <float>,
+  "constraints_met": <true/false>,
+  "critique": "<brief independent assessment>"
+}
+
+Return ONLY the JSON."""
+
+HERMES_BUSINESS_SYSTEM = """You are HERMES, an independent evaluator for the AI Creativity Lab.
+
+You are evaluating a BUSINESS-LANE artifact. You have NO knowledge of prior evaluations.
+Score on the same eight dimensions (1.0-10.0):
+1. NOVELTY  2. SURPRISE  3. VALUE  4. ELABORATION  5. COHERENCE
+6. ACTIONABILITY  7. BRAND_FIT  8. FACTUAL_RELIABILITY
+Keep these dimensions separate. Do not let specificity or polish substitute for genuine surprise or business value.
+In business tasks, keep novelty and surprise conservative unless the output clearly introduces a strategically non-obvious move that would still feel strong to an experienced human operator.
+Interpret constraints literally, not generously.
+
+COMPOSITE = Novelty(0.18) + Surprise(0.12) + Value(0.18) + Elaboration(0.10) + Coherence(0.10)
++ Actionability(0.14) + Brand_fit(0.10) + Factual_reliability(0.08)
+
+Also assess whether constraints were met and briefly note any violations.
+
+Be honest and independent. Do not inflate scores. Bias against 8+ unless the output clearly exceeds strong professional human work.
+
+Respond with valid JSON:
+{
+  "novelty": <float>,
+  "surprise": <float>,
+  "value": <float>,
+  "elaboration": <float>,
+  "coherence": <float>,
+  "actionability": <float>,
+  "brand_fit": <float>,
+  "factual_reliability": <float>,
+  "composite": <float>,
+  "constraints_met": <true/false>,
+  "constraint_notes": "<brief note on constraints>",
+  "critique": "<brief independent assessment>"
+}
+
+Return ONLY the JSON."""
+
+
+def _parse_json_response(text):
+    """Parse JSON from model response, handling markdown fences. Returns (parsed_dict, was_parse_failure)."""
+    text = (text or "").strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+
+    candidates = [text]
+    start_positions = [idx for idx, ch in enumerate(text) if ch in "{["]
+    for start in start_positions:
+        stack = []
+        for idx in range(start, len(text)):
+            ch = text[idx]
+            if ch in "{[":
+                stack.append("}" if ch == "{" else "]")
+            elif ch in "}]":
+                if not stack or ch != stack[-1]:
+                    break
+                stack.pop()
+                if not stack:
+                    candidates.append(text[start:idx + 1].strip())
+                    break
+    try:
+        for candidate in candidates:
+            try:
+                return json.loads(candidate), False
+            except json.JSONDecodeError:
+                continue
+        return None, True
+    except Exception:
+        return None, True
+
+
+async def _generate_json_with_retry(role, system, user_content, max_tokens=*** retry_instruction=None):
+    text, response = await _generate_text(
+        role=role,
+        system=system,
+        user_content=user_content,
+        max_tokens=***
+    )
+    result, parse_failure = _parse_json_response(text)
+    if not parse_failure:
+        return result, response, False
+
+    retry_content = user_content
+    if retry_instruction:
+        retry_content = f"{user_content}\n\n{retry_instruction}"
+    else:
+        retry_content = f"{user_content}\n\nReturn ONLY valid JSON matching the required schema."
+
+    retry_text, retry_response = await _generate_text(
+        role=role,
+        system=system,
+        user_content=retry_content,
+        max_tokens=***
+    )
+    retry_result, retry_parse_failure = _parse_json_response(retry_text)
+    return retry_result, retry_response, retry_parse_failure
+
+
+def _get_client(backend):
+    if backend == "openai":
+        if not OPENAI_API_KEY:
+            raise RuntimeError("OPENAI_API_KEY is not set. Add it to your environment or .env before running experiments.")
+        return OPENAI_CLIENT
+    if backend == "ollama":
+        return OLLAMA_CLIENT
+    raise RuntimeError(f"Unsupported backend '{backend}'. Use 'openai' or 'ollama'.")
+
+
+def _get_role_config(role):
+    _name, backend, model = ROLE_CONFIG[role]
+    return backend, model
+
+
+def describe_experiment_models():
+    return json.dumps({
+        "genesis": {"backend": GENESIS_BACKEND, "model": MODEL},
+        "genesis_branch": {"backend": GENESIS_BACKEND, "model": GENESIS_BRANCH_MODEL},
+        "muse": {"backend": MUSE_BACKEND, "model": MUSE_MODEL},
+        "hermes": {"backend": HERMES_BACKEND, "model": HERMES_MODEL},
+        "council": {"backend": COUNCIL_BACKEND, "model": COUNCIL_MODEL},
+        "interlocutor": {"backend": INTERLOCUTOR_BACKEND, "model": INTERLOCUTOR_MODEL},
+    }, sort_keys=True)
+
+
+def describe_orchestration_policy():
+    return {
+        "muse": {"mode": "always_on"},
+        "hermes": {
+            "gate_enabled": HERMES_GATE_ENABLED,
+            "min_muse_composite": HERMES_MIN_MUSE_COMPOSITE,
+            "require_constraint_pass": HERMES_REQUIRE_CONSTRAINT_PASS,
+            "runs_on": "candidate_or_better" if HERMES_GATE_ENABLED else "all_runs",
+        },
+        "scout": {
+            "gate_enabled": SCOUT_GATE_ENABLED,
+            "status": "placeholder_disabled" if not SCOUT_GATE_ENABLED else "future_role",
+        },
+        "council": {
+            "mode": "batch_governance_manual_trigger",
+        },
+    }
+
+
+async def _generate_text(role, system, user_content, max_tokens=***
+    backend, model = _get_role_config(role)
+    client = _get_client(backend)
+
+    response = await client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": user_content},
+        ],
+        max_completion_tokens=***
+    )
+    text = response.choices[0].message.content or ""
+    return text, response
+
+
+def _score_weights(lane):
+    return BUSINESS_WEIGHTS if lane == "business" else CREATIVE_WEIGHTS
+
+
+def _split_nonempty_lines(text):
+    return [line.strip() for line in text.splitlines() if line.strip()]
+
+
+def _split_stanzas(text):
+    return [
+        [line.strip() for line in block.splitlines() if line.strip()]
+        for block in re.split(r"\n\s*\n", text.strip())
+        if block.strip()
+    ]
+
+
+def _tokenize_words(text):
+    return re.findall(r"[A-Za-z']+", text)
+
+
+def _count_sentences(text):
+    parts = [part.strip() for part in re.split(r"[.!?]+", text) if part.strip()]

@@ -1,0 +1,13 @@
+.DS_Store
+
+# Python caches and virtualenvs
+__pycache__/
+*.py[cod]
+.venv/
+
+# Local secrets
+.env
+.env.save
+
+# Local editor state
+.claude/settings.local.json
