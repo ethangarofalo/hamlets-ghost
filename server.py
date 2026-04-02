@@ -203,6 +203,50 @@ async def _execute_experiment(task, iteration, consecutive_discards=0):
         process_trace["orchestration"] = orchestration_trace
         await db.insert_artifact(exp_id, artifact_content, process_trace=process_trace, source_context={})
 
+        if not artifact_content.strip():
+            process_trace["artifact_contract_status"] = "empty_artifact"
+            process_trace["generation_failure_reason"] = process_trace.get("generation_failure_reason") or "empty_artifact_from_genesis"
+            orchestration_trace["gates"]["hermes"] = {
+                "eligible": False,
+                "decision": "skipped",
+                "reason": "empty_artifact_before_scoring",
+                "muse_composite": None,
+                "constraints_met": None,
+            }
+            orchestration_trace["skipped_agents"].extend(["muse", "hermes"])
+            orchestration_trace["final_outcome"] = {
+                "status": "invalid",
+                "promotion_status": "candidate",
+                "keep": False,
+                "reason": "generation_failure_empty_artifact",
+            }
+            process_trace["orchestration"] = orchestration_trace
+            await db.update_artifact_process_trace(exp_id, process_trace)
+            await db.finalize_experiment(
+                exp_id,
+                status="invalid",
+                promotion_status="candidate",
+                parse_failure=True,
+                cost=total_cost,
+            )
+            state = await db.get_state()
+            await db.update_state(
+                total_experiments=(state.get("total_experiments") or 0) + 1,
+                kept=(state.get("kept") or 0),
+                discarded=(state.get("discarded") or 0) + 1,
+                promoted=(state.get("promoted") or 0),
+                best_score=state.get("best_score"),
+                total_cost=(state.get("total_cost") or 0.0) + total_cost,
+                consecutive_discards=min(MAX_CONSECUTIVE_DISCARDS, (consecutive_discards or 0) + 1),
+            )
+            return {
+                "experiment_id": exp_id,
+                "status": "invalid",
+                "promotion_status": "candidate",
+                "keep": False,
+                "artifact": artifact_content,
+            }
+
         muse_result, muse_cost, muse_parse_failure = await agents.run_muse(
             artifact=artifact_content,
             prompt=task["prompt"],

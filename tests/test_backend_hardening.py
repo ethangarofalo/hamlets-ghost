@@ -164,6 +164,73 @@ class BackendHardeningTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("serious first draft", loaded)
         self.assertNotIn("rigorous Socratic interlocutor", loaded)
 
+    def test_normalize_genesis_artifact_supports_structured_hero_fields(self):
+        artifact = agents._normalize_genesis_artifact(
+            {
+                "headline": "Hire for performance",
+                "subheadline": "Stop rewarding interviews over actual execution.",
+                "cta": "See better candidates",
+            }
+        )
+
+        self.assertEqual(
+            artifact,
+            "Headline: Hire for performance\n"
+            "Subheadline: Stop rewarding interviews over actual execution.\n"
+            "CTA: See better candidates",
+        )
+
+    async def test_execute_experiment_marks_blank_artifact_invalid_before_scoring(self):
+        task = {
+            "prompt": "Test prompt",
+            "lane": "business",
+            "track": "constrained",
+            "constraints": ["headline under 10 words"],
+        }
+
+        create_experiment = AsyncMock(return_value=321)
+        update_state = AsyncMock()
+        insert_artifact = AsyncMock()
+        update_artifact_process_trace = AsyncMock()
+        finalize_experiment = AsyncMock()
+        get_state = AsyncMock(
+            return_value={
+                "total_experiments": 10,
+                "kept": 4,
+                "discarded": 2,
+                "promoted": 1,
+                "best_score": 7.5,
+                "total_cost": 0.4,
+            }
+        )
+
+        with patch.object(server, "_resolve_policy_control", AsyncMock(return_value=task)), \
+             patch.object(server.db, "create_experiment", create_experiment), \
+             patch.object(server.db, "update_state", update_state), \
+             patch.object(server.db, "insert_artifact", insert_artifact), \
+             patch.object(server.db, "update_artifact_process_trace", update_artifact_process_trace), \
+             patch.object(server.db, "finalize_experiment", finalize_experiment), \
+             patch.object(server.db, "get_state", get_state), \
+             patch.object(server.agents, "run_genesis", AsyncMock(return_value=({"artifact": "   ", "process_trace": {}}, 0.12, False))), \
+             patch.object(server.agents, "run_muse", AsyncMock()) as run_muse, \
+             patch.object(server.agents, "run_hermes", AsyncMock()) as run_hermes:
+            result = await server._execute_experiment(task, iteration=1, consecutive_discards=0)
+
+        self.assertEqual(result["status"], "invalid")
+        self.assertFalse(result["keep"])
+        self.assertEqual(result["artifact"], "   ")
+        run_muse.assert_not_awaited()
+        run_hermes.assert_not_awaited()
+
+        process_trace = update_artifact_process_trace.await_args.args[1]
+        self.assertEqual(process_trace["artifact_contract_status"], "empty_artifact")
+        self.assertEqual(process_trace["generation_failure_reason"], "empty_artifact_from_genesis")
+        self.assertEqual(process_trace["orchestration"]["final_outcome"]["reason"], "generation_failure_empty_artifact")
+
+        finalize_kwargs = finalize_experiment.await_args.kwargs
+        self.assertEqual(finalize_kwargs["status"], "invalid")
+        self.assertTrue(finalize_kwargs["parse_failure"])
+
 
 if __name__ == "__main__":
     unittest.main()

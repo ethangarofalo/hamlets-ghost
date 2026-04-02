@@ -327,6 +327,44 @@ def _normalize_score_result(result, lane):
     return payload
 
 
+def _coerce_text_value(value):
+    if isinstance(value, str):
+        return value.strip()
+    return ""
+
+
+def _normalize_genesis_artifact(result):
+    if not isinstance(result, dict):
+        return ""
+
+    for key in ("artifact", "draft", "response", "text", "content"):
+        value = _coerce_text_value(result.get(key))
+        if value:
+            return value
+
+    hero_parts = []
+    headline = _coerce_text_value(result.get("headline"))
+    subheadline = _coerce_text_value(result.get("subheadline"))
+    cta = _coerce_text_value(result.get("cta"))
+    if headline:
+        hero_parts.append(f"Headline: {headline}")
+    if subheadline:
+        hero_parts.append(f"Subheadline: {subheadline}")
+    if cta:
+        hero_parts.append(f"CTA: {cta}")
+    if hero_parts:
+        return "\n".join(hero_parts)
+
+    title = _coerce_text_value(result.get("title"))
+    body = _coerce_text_value(result.get("body"))
+    closing = _coerce_text_value(result.get("closing"))
+    sections = [part for part in (title, body, closing) if part]
+    if sections:
+        return "\n\n".join(sections)
+
+    return ""
+
+
 async def run_genesis(prompt, constraints=None, prior_feedback=None, lane="creative", policy_context=None, **_kwargs):
     policy_note = ""
     if policy_context:
@@ -347,16 +385,11 @@ async def run_genesis(prompt, constraints=None, prior_feedback=None, lane="creat
         artifact = result["artifact"] if isinstance(result, dict) and result.get("artifact") else ""
         if not artifact:
             raw_text, response = await _generate_text("genesis", GENESIS_SYSTEM, user_content, max_tokens=2000)
-            artifact = raw_text
+            artifact = _coerce_text_value(raw_text)
+        artifact = _coerce_text_value(artifact)
         return {"artifact": artifact, "process_trace": {"protocol": GENESIS_PROTOCOL, "parse_failure": True}}, _estimate_cost(response, "genesis"), True
 
-    artifact = (
-        result.get("artifact")
-        or result.get("draft")
-        or result.get("response")
-        or result.get("text")
-        or ""
-    )
+    artifact = _normalize_genesis_artifact(result)
     process_trace = result.get("process_trace") or {
         "protocol": GENESIS_PROTOCOL,
         "revision_status": "ok",
@@ -372,6 +405,9 @@ async def run_genesis(prompt, constraints=None, prior_feedback=None, lane="creat
     process_trace.setdefault("verifier_checks", [])
     process_trace.setdefault("verifier_inferred_constraints", [])
     process_trace.setdefault("stage_costs", {})
+    process_trace.setdefault("artifact_contract_status", "ok" if artifact else "empty_artifact")
+    if not artifact:
+        process_trace.setdefault("generation_failure_reason", "empty_artifact_after_normalization")
     return {"artifact": artifact, "process_trace": process_trace}, _estimate_cost(response, "genesis"), False
 
 
