@@ -10,6 +10,13 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+try:
+    from telethon import TelegramClient
+    from telethon.sessions import StringSession
+except Exception:  # pragma: no cover - optional dependency during local setup
+    TelegramClient = None
+    StringSession = None
+
 
 load_dotenv()
 
@@ -17,6 +24,11 @@ THERON_GATEWAY_MODE = os.getenv("THERON_GATEWAY_MODE", "mock").strip().lower()
 THERON_BOT_NAME = os.getenv("THERON_BOT_NAME", "Theron")
 THERON_GATEWAY_MODEL = os.getenv("THERON_GATEWAY_MODEL", "theron/latest")
 THERON_GATEWAY_VERSION = "0.1.0"
+THERON_TELEGRAM_API_ID = os.getenv("THERON_TELEGRAM_API_ID", "").strip()
+THERON_TELEGRAM_API_HASH = os.getenv("THERON_TELEGRAM_API_HASH", "").strip()
+THERON_TELEGRAM_SESSION_STRING = os.getenv("THERON_TELEGRAM_SESSION_STRING", "").strip()
+THERON_TELEGRAM_SESSION_FILE = os.getenv("THERON_TELEGRAM_SESSION_FILE", "").strip()
+THERON_TELEGRAM_TIMEOUT_SECONDS = int(os.getenv("THERON_TELEGRAM_TIMEOUT_SECONDS", "90"))
 
 
 class ChatMessage(BaseModel):
@@ -103,6 +115,41 @@ def _build_mock_payload(prompt_bundle: dict[str, str]) -> dict[str, Any]:
     }
 
 
+def _build_telegram_request(prompt_bundle: dict[str, str]) -> str:
+    system = prompt_bundle.get("system") or "Return valid JSON only."
+    user = prompt_bundle.get("user") or ""
+    return (
+        "THERON LAB REQUEST\n"
+        f"system_instruction:\n{system}\n\n"
+        "Return valid JSON only in this shape:\n"
+        "{\n"
+        '  "artifact": "<string>",\n'
+        '  "process_trace": {\n'
+        '    "drafts_considered": <number>,\n'
+        '    "rejection_reasons": ["<string>"],\n'
+        '    "strategy_notes": "<string>"\n'
+        "  }\n"
+        "}\n\n"
+        f"USER REQUEST:\n{user}"
+    )
+
+
+def _telegram_ready() -> bool:
+    if TelegramClient is None or StringSession is None:
+        return False
+    if not THERON_TELEGRAM_API_ID or not THERON_TELEGRAM_API_HASH:
+        return False
+    return bool(THERON_TELEGRAM_SESSION_STRING or THERON_TELEGRAM_SESSION_FILE)
+
+
+def _build_telegram_session():
+    if THERON_TELEGRAM_SESSION_STRING:
+        return StringSession(THERON_TELEGRAM_SESSION_STRING)
+    if THERON_TELEGRAM_SESSION_FILE:
+        return THERON_TELEGRAM_SESSION_FILE
+    raise RuntimeError("No Telegram session configured for Theron gateway.")
+
+
 class TheronTransport:
     async def generate(self, prompt_bundle: dict[str, str]) -> dict[str, Any]:
         raise NotImplementedError
@@ -114,10 +161,29 @@ class MockTheronTransport(TheronTransport):
 
 
 class TelegramTheronTransport(TheronTransport):
-    async def generate(self, prompt_bundle: dict[str, str]) -> dict[str, Any]:
-        raise NotImplementedError(
-            "Telegram transport is not wired yet. Keep the gateway in mock mode until the Telegram bridge is implemented."
+    def _build_client(self):
+        if not _telegram_ready():
+            raise RuntimeError(
+                "Telegram transport is not configured. Set THERON_TELEGRAM_API_ID, "
+                "THERON_TELEGRAM_API_HASH, and either THERON_TELEGRAM_SESSION_STRING "
+                "or THERON_TELEGRAM_SESSION_FILE."
+            )
+        return TelegramClient(
+            _build_telegram_session(),
+            int(THERON_TELEGRAM_API_ID),
+            THERON_TELEGRAM_API_HASH,
         )
+
+    async def generate(self, prompt_bundle: dict[str, str]) -> dict[str, Any]:
+        request_text = _build_telegram_request(prompt_bundle)
+        async with self._build_client() as client:
+            async with client.conversation(THERON_BOT_NAME, timeout=THERON_TELEGRAM_TIMEOUT_SECONDS) as conversation:
+                await conversation.send_message(request_text)
+                reply = await conversation.get_response()
+        payload = _extract_json_object(getattr(reply, "raw_text", "") or getattr(reply, "text", "") or "")
+        if payload is None:
+            raise ValueError("Theron reply did not contain valid JSON.")
+        return payload
 
 
 def _get_transport() -> TheronTransport:
@@ -138,7 +204,7 @@ async def health() -> dict[str, Any]:
         "mode": THERON_GATEWAY_MODE,
         "bot_name": THERON_BOT_NAME,
         "model": THERON_GATEWAY_MODEL,
-        "telegram_ready": THERON_GATEWAY_MODE == "telegram" and False,
+        "telegram_ready": _telegram_ready(),
     }
 
 
