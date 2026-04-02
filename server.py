@@ -214,6 +214,205 @@ async def _resolve_policy_control(task):
     return resolved
 
 
+async def _score_existing_artifact(exp_id, task, artifact_content, process_trace, source_context, *, consecutive_discards=0):
+    orchestration_trace = _build_orchestration_trace(task)
+    role_provenance = _build_role_provenance(task)
+    process_trace = dict(process_trace or {})
+    process_trace.setdefault("verification_status", "not_run")
+    process_trace.setdefault("verifier_findings", [])
+    process_trace.setdefault("verifier_checks", [])
+    process_trace.setdefault("verifier_inferred_constraints", [])
+    process_trace.setdefault("stage_costs", {})
+    process_trace.setdefault("role_routing", role_provenance)
+    process_trace["orchestration"] = orchestration_trace
+    await db.insert_artifact(exp_id, artifact_content, process_trace=process_trace, source_context=source_context or {"role_routing": role_provenance})
+
+    if not artifact_content.strip():
+        process_trace["artifact_contract_status"] = "empty_artifact"
+        process_trace["generation_failure_reason"] = process_trace.get("generation_failure_reason") or "empty_artifact_from_external_submission"
+        orchestration_trace["gates"]["hermes"] = {
+            "eligible": False,
+            "decision": "skipped",
+            "reason": "empty_artifact_before_scoring",
+            "muse_composite": None,
+            "constraints_met": None,
+        }
+        orchestration_trace["skipped_agents"].extend(["muse", "hermes"])
+        orchestration_trace["final_outcome"] = {
+            "status": "invalid",
+            "promotion_status": "candidate",
+            "keep": False,
+            "reason": "generation_failure_empty_artifact",
+        }
+        process_trace["orchestration"] = orchestration_trace
+        await db.update_artifact_process_trace(exp_id, process_trace)
+        await db.finalize_experiment(exp_id, status="invalid", promotion_status="candidate", parse_failure=True, cost=0.0)
+        state = await db.get_state()
+        await db.update_state(
+            total_experiments=(state.get("total_experiments") or 0) + 1,
+            kept=(state.get("kept") or 0),
+            discarded=(state.get("discarded") or 0) + 1,
+            promoted=(state.get("promoted") or 0),
+            best_score=state.get("best_score"),
+            total_cost=(state.get("total_cost") or 0.0),
+            consecutive_discards=min(MAX_CONSECUTIVE_DISCARDS, (consecutive_discards or 0) + 1),
+        )
+        return {
+            "experiment_id": exp_id,
+            "status": "invalid",
+            "promotion_status": "candidate",
+            "keep": False,
+            "artifact": artifact_content,
+        }
+
+    total_cost = 0.0
+    muse_result, muse_cost, muse_parse_failure = await agents.run_muse(
+        artifact=artifact_content,
+        prompt=task["prompt"],
+        constraints=task.get("constraints"),
+        lane=task.get("lane", "creative"),
+    )
+    total_cost += muse_cost or 0.0
+
+    has_constraints = bool(task.get("constraints"))
+    stored_muse_result = dict(muse_result)
+    if not has_constraints and stored_muse_result.get("constraints_met") is None:
+        stored_muse_result["constraints_met"] = True
+    await db.insert_score(exp_id, "muse", stored_muse_result, cost=muse_cost, parse_failure=muse_parse_failure)
+
+    verifier_state = _extract_verifier_constraint_state(process_trace)
+    run_hermes, hermes_gate_reason = _should_run_hermes(muse_result, muse_parse_failure, experiment_id=exp_id)
+    orchestration_trace["gates"]["hermes"] = {
+        "eligible": run_hermes,
+        "decision": "run" if run_hermes else "skipped",
+        "reason": hermes_gate_reason,
+        "muse_composite": muse_result.get("composite") if muse_result else None,
+        "constraints_met": muse_result.get("constraints_met") if muse_result else None,
+    }
+
+    holdout_result = None
+    holdout_parse_failure = True
+    holdout_cost = 0.0
+    external_hermes_result = None
+    external_hermes_parse_failure = True
+    external_hermes_cost = 0.0
+    if run_hermes:
+        try:
+            holdout_result, holdout_cost, holdout_parse_failure = await agents.run_hermes(
+                artifact=artifact_content,
+                prompt=task["prompt"],
+                constraints=task.get("constraints"),
+                lane=task.get("lane", "creative"),
+            )
+            total_cost += holdout_cost or 0.0
+            if not holdout_parse_failure:
+                await db.insert_score(exp_id, "hermes", holdout_result, cost=holdout_cost, parse_failure=False)
+                orchestration_trace["executed_agents"].append("hermes")
+            else:
+                orchestration_trace["gates"]["hermes"]["decision"] = "parse_failure"
+                orchestration_trace["gates"]["hermes"]["reason"] = "hermes_parse_failure"
+        except Exception as exc:
+            orchestration_trace["gates"]["hermes"]["decision"] = "error"
+            orchestration_trace["gates"]["hermes"]["reason"] = str(exc)
+    else:
+        orchestration_trace["skipped_agents"].append("hermes")
+
+    if getattr(agents, "HERMES_EXTERNAL_SHADOW_ENABLED", False) and run_hermes:
+        try:
+            external_hermes_result, external_hermes_cost, external_hermes_parse_failure = await agents.run_external_hermes(
+                artifact=artifact_content,
+                prompt=task["prompt"],
+                constraints=task.get("constraints"),
+                lane=task.get("lane", "creative"),
+            )
+            total_cost += external_hermes_cost or 0.0
+            if not external_hermes_parse_failure:
+                await db.insert_score(exp_id, "hermes_external", external_hermes_result, cost=external_hermes_cost, parse_failure=False)
+            process_trace.setdefault("shadow_evaluators", {})
+            process_trace["shadow_evaluators"]["hermes_external"] = {
+                "enabled": True,
+                "backend": role_provenance["hermes_external"]["backend"],
+                "model": role_provenance["hermes_external"]["model"],
+                "parse_failure": bool(external_hermes_parse_failure),
+                "composite": external_hermes_result.get("composite") if external_hermes_result else None,
+                "constraints_met": external_hermes_result.get("constraints_met") if external_hermes_result else None,
+            }
+        except Exception as exc:
+            process_trace.setdefault("shadow_evaluators", {})
+            process_trace["shadow_evaluators"]["hermes_external"] = {
+                "enabled": True,
+                "backend": role_provenance["hermes_external"]["backend"],
+                "model": role_provenance["hermes_external"]["model"],
+                "error": str(exc),
+            }
+
+    composite = muse_result.get("composite")
+    constraints_met = muse_result.get("constraints_met")
+    has_effective_constraints = has_constraints or verifier_state["has_effective_constraints"]
+    effective_constraints_passed = constraints_met is not False if not has_effective_constraints else constraints_met is True
+
+    critic_composite = holdout_result.get("composite") if holdout_result and not holdout_parse_failure else None
+    divergence = abs(composite - critic_composite) if composite is not None and critic_composite is not None else None
+
+    if muse_parse_failure:
+        keep = False
+        status = "invalid"
+        promotion = "candidate"
+    elif has_effective_constraints and not effective_constraints_passed:
+        keep = False
+        status = "constraint_fail"
+        promotion = "candidate"
+    elif composite is not None and composite >= PROMOTE_COMPOSITE_THRESHOLD and effective_constraints_passed:
+        if divergence is not None and divergence < MAX_DIVERGENCE_FOR_PROMOTION:
+            keep = True
+            status = "promoted"
+            promotion = "shadow"
+        else:
+            keep = True
+            status = "kept"
+            promotion = "candidate"
+    elif composite is not None and composite >= KEEP_COMPOSITE_THRESHOLD and effective_constraints_passed:
+        keep = True
+        status = "kept"
+        promotion = "candidate"
+    else:
+        keep = False
+        status = "discard"
+        promotion = "candidate"
+
+    orchestration_trace["final_outcome"] = {"status": status, "promotion_status": promotion, "keep": keep}
+    if external_hermes_result and external_hermes_result.get("composite") is not None and composite is not None:
+        process_trace.setdefault("shadow_evaluators", {})
+        process_trace["shadow_evaluators"]["hermes_external"]["divergence_from_muse"] = abs(composite - external_hermes_result.get("composite"))
+        if holdout_result and holdout_result.get("composite") is not None:
+            process_trace["shadow_evaluators"]["hermes_external"]["divergence_from_local_hermes"] = abs(holdout_result.get("composite") - external_hermes_result.get("composite"))
+    process_trace["orchestration"] = orchestration_trace
+    await db.update_artifact_process_trace(exp_id, process_trace)
+    await db.finalize_experiment(exp_id, status=status, promotion_status=promotion, parse_failure=muse_parse_failure, cost=total_cost)
+
+    state = await db.get_state()
+    best_score = state.get("best_score")
+    next_best = best_score if best_score is not None else composite
+    if composite is not None and (next_best is None or composite > next_best):
+        next_best = composite
+    await db.update_state(
+        total_experiments=(state.get("total_experiments") or 0) + 1,
+        kept=(state.get("kept") or 0) + (1 if status in {"kept", "promoted"} else 0),
+        discarded=(state.get("discarded") or 0) + (1 if status in {"discard", "constraint_fail", "invalid"} else 0),
+        promoted=(state.get("promoted") or 0) + (1 if status == "promoted" else 0),
+        best_score=next_best,
+        total_cost=(state.get("total_cost") or 0.0) + total_cost,
+        consecutive_discards=0 if keep else min(MAX_CONSECUTIVE_DISCARDS, (consecutive_discards or 0) + 1),
+    )
+    return {
+        "experiment_id": exp_id,
+        "status": status,
+        "promotion_status": promotion,
+        "keep": keep,
+        "artifact": artifact_content,
+    }
+
+
 async def _execute_experiment(task, iteration, consecutive_discards=0):
     task = await _resolve_policy_control(task)
     exp_id = await db.create_experiment(task)
@@ -631,6 +830,57 @@ async def run_custom_experiment(payload: dict = Body(...), x_admin_token: str | 
     }
     state = await db.get_state()
     result = await _execute_experiment(task, iteration=(state["total_experiments"] or 0) + 1, consecutive_discards=state.get("consecutive_discards") or 0)
+    return JSONResponse(result)
+
+
+@app.post("/api/experiment/external")
+async def run_external_experiment(payload: dict = Body(...), x_admin_token: str | None = Header(None, alias=ADMIN_TOKEN_HEADER)):
+    auth_error = _require_admin_token(x_admin_token)
+    if auth_error:
+        return auth_error
+    artifact = (payload.get("artifact") or "").strip()
+    if not payload.get("prompt"):
+        return JSONResponse({"error": "prompt is required"}, status_code=400)
+    if not artifact:
+        return JSONResponse({"error": "artifact is required"}, status_code=400)
+
+    task = {
+        "id": "external",
+        "lane": payload.get("lane", "creative"),
+        "prompt": payload["prompt"],
+        "creativity_type": payload.get("creativity_type", "custom"),
+        "constraints": payload.get("constraints") or [],
+        "track": payload.get("track", "external"),
+        "family": payload.get("family", "external_operator"),
+        "hypothesis": payload.get("hypothesis"),
+        "condition": payload.get("condition", "critique_on"),
+        "generation_protocol": payload.get("generation_protocol", "external_manual"),
+    }
+    task = await _resolve_policy_control(task)
+    exp_id = await db.create_experiment(task)
+    await db.update_state(
+        current_lane=task.get("lane"),
+        current_track=task.get("track"),
+        current_experiment_id=exp_id,
+    )
+    state = await db.get_state()
+    result = await _score_existing_artifact(
+        exp_id,
+        task,
+        artifact,
+        payload.get("process_trace") or {
+            "protocol": "external_manual",
+            "artifact_contract_status": "ok",
+            "submission_mode": "manual_bridge",
+        },
+        payload.get("source_context") or {
+            "external_submission": True,
+            "generator_provider": payload.get("generator_provider", "theron_manual"),
+            "generator_role_id": payload.get("generator_role_id", "theron"),
+            "submission_mode": "manual_bridge",
+        },
+        consecutive_discards=state.get("consecutive_discards") or 0,
+    )
     return JSONResponse(result)
 
 

@@ -61,6 +61,18 @@ class ApiSecurityTests(unittest.TestCase):
         self.assertTrue(payload["has_internal_error_details"])
         self.assertIn("Check server logs", payload["error_summary"])
 
+    def test_external_experiment_route_rejects_missing_artifact(self):
+        os.environ["LAB_ADMIN_TOKEN"] = "secret-token"
+
+        response = self.client.post(
+            "/api/experiment/external",
+            json={"prompt": "demo prompt", "artifact": "   "},
+            headers={"X-Admin-Token": "secret-token"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("artifact is required", response.json()["error"])
+
 
 if __name__ == "__main__":
     unittest.main()
