@@ -10,4 +10,9 @@ __pycache__/
 .env.save
 
 # Local editor state
-.claude/settings.local.json
+.claude/
+
+# Local runtime state
+creativity_lab.db
+*.db-shm
+*.db-wal
