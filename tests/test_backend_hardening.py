@@ -1,5 +1,6 @@
 import asyncio
 import os
+import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
@@ -116,6 +117,52 @@ class BackendHardeningTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(foreign_keys[0], 1)
         self.assertGreaterEqual(busy_timeout[0], 1000)
         self.assertEqual(str(journal_mode[0]).lower(), "wal")
+
+    def test_load_prompt_override_skips_contaminated_genesis_prompt(self):
+        temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(temp_dir.cleanup)
+        db_path = Path(temp_dir.name) / "creativity_lab.db"
+
+        conn = sqlite3.connect(db_path)
+        conn.execute("CREATE TABLE prompt_versions (role TEXT, content TEXT, created_at TEXT)")
+        conn.execute(
+            "INSERT INTO prompt_versions (role, content, created_at) VALUES (?, ?, ?)",
+            (
+                "genesis",
+                "You are GENESIS, a creative generator in the AI Creativity Lab.\n\n"
+                "You must respond with valid JSON in this exact format:\n"
+                "{\"artifact\": \"...\"}\n\n"
+                "You are GENESIS, the generator in the AI Creativity Lab.\n"
+                "Your job in this step is to produce a serious first draft, not a finished artifact.\n"
+                "You are a rigorous Socratic interlocutor in the AI Creativity Lab.\n"
+                "You are GENESIS, revising a draft after Socratic questioning.\n",
+                "2026-04-02 13:21:45",
+            ),
+        )
+        conn.execute(
+            "INSERT INTO prompt_versions (role, content, created_at) VALUES (?, ?, ?)",
+            (
+                "genesis",
+                "You are GENESIS, a creative generator in the AI Creativity Lab.\n\n"
+                "Your role is to produce creative artifacts in response to prompts with constraints.\n\n"
+                "You must respond with valid JSON in this exact format:\n"
+                "{\"artifact\": \"...\", \"process_trace\": {\"strategy_notes\": \"...\"}}\n",
+                "2026-04-01 13:07:20",
+            ),
+        )
+        conn.commit()
+        conn.close()
+
+        fake_path = SimpleNamespace()
+        fake_path.exists = lambda: True
+        fake_path.with_name = lambda _name: db_path
+
+        with patch.object(agents, "Path", return_value=fake_path):
+            loaded = agents._load_prompt_override("genesis", "fallback", min_length=50)
+
+        self.assertIn('"artifact"', loaded)
+        self.assertNotIn("serious first draft", loaded)
+        self.assertNotIn("rigorous Socratic interlocutor", loaded)
 
 
 if __name__ == "__main__":

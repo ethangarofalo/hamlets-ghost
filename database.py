@@ -507,10 +507,17 @@ async def insert_hypothesis(hypothesis_id, description, lane):
 async def store_prompt_version(prompt_hash, prompt_family, prompt_text):
     await init_db()
     async with connect() as conn:
-        await conn.execute(
-            "INSERT OR REPLACE INTO prompt_versions (prompt_hash, prompt_family, prompt_text) VALUES (?, ?, ?)",
-            (prompt_hash, prompt_family, prompt_text),
-        )
+        columns = [row["name"] for row in await (await conn.execute("PRAGMA table_info(prompt_versions)")).fetchall()]
+        if {"prompt_hash", "prompt_family", "prompt_text"}.issubset(columns):
+            await conn.execute(
+                "INSERT OR REPLACE INTO prompt_versions (prompt_hash, prompt_family, prompt_text) VALUES (?, ?, ?)",
+                (prompt_hash, prompt_family, prompt_text),
+            )
+        else:
+            await conn.execute(
+                "INSERT OR REPLACE INTO prompt_versions (hash, role, content) VALUES (?, ?, ?)",
+                (prompt_hash, prompt_family, prompt_text),
+            )
         await conn.commit()
 
 

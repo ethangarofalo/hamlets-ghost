@@ -4,6 +4,8 @@ import asyncio
 import json
 import os
 import re
+import sqlite3
+from pathlib import Path
 
 try:
     from openai import AsyncOpenAI
@@ -52,6 +54,81 @@ OPENAI_PRICING = {
     "gpt-4o": {"input": 2.50, "output": 10.00},
 }
 
+
+PROMPT_CONTAMINATION_MARKERS = {
+    "genesis": (
+        "Your job in this step is to produce a serious first draft",
+        "Produce a strong first draft as JSON only.",
+        "You are a rigorous Socratic interlocutor",
+        "You are a Socratic interlocutor. Return JSON only.",
+        "You are GENESIS, revising a draft after Socratic questioning",
+        "You are GENESIS revising a draft. Return JSON only.",
+    ),
+    "genesis_draft": (
+        "You are a rigorous Socratic interlocutor",
+        "You are a Socratic interlocutor. Return JSON only.",
+        "You are GENESIS, revising a draft after Socratic questioning",
+        "You are GENESIS revising a draft. Return JSON only.",
+    ),
+    "interlocutor": (
+        "You are GENESIS, the generator in the AI Creativity Lab.",
+        "You are GENESIS. Produce a strong first draft as JSON only.",
+        "You are GENESIS, revising a draft after Socratic questioning",
+        "You are GENESIS revising a draft. Return JSON only.",
+    ),
+    "genesis_revision": (
+        "You are a rigorous Socratic interlocutor",
+        "You are a Socratic interlocutor. Return JSON only.",
+        "Your job in this step is to produce a serious first draft",
+        "Produce a strong first draft as JSON only.",
+    ),
+}
+
+
+def _prompt_override_is_usable(role_name, content, min_length):
+    if not content or len(content) < min_length:
+        return False
+    contamination_markers = PROMPT_CONTAMINATION_MARKERS.get(role_name, ())
+    return not any(marker in content for marker in contamination_markers)
+
+
+def _load_prompt_override(role_name, fallback, min_length=200):
+    db_path = Path(__file__).with_name("creativity_lab.db")
+    if not db_path.exists():
+        return fallback
+    try:
+        with sqlite3.connect(db_path) as conn:
+            columns = [row[1] for row in conn.execute("PRAGMA table_info(prompt_versions)").fetchall()]
+            if {"role", "content"}.issubset(columns):
+                rows = conn.execute(
+                    """
+                    SELECT content
+                    FROM prompt_versions
+                    WHERE role = ?
+                    ORDER BY created_at DESC
+                    """,
+                    (role_name,),
+                ).fetchall()
+            elif {"prompt_family", "prompt_text"}.issubset(columns):
+                rows = conn.execute(
+                    """
+                    SELECT prompt_text
+                    FROM prompt_versions
+                    WHERE prompt_family = ?
+                    ORDER BY created_at DESC
+                    """,
+                    (role_name,),
+                ).fetchall()
+            else:
+                rows = []
+            for row in rows:
+                content = row[0]
+                if _prompt_override_is_usable(role_name, content, min_length):
+                    return content
+    except Exception:
+        pass
+    return fallback
+
 ROLE_CONFIG = {
     "genesis": ("GENESIS", GENESIS_BACKEND, MODEL),
     "genesis_branch": ("GENESIS_BRANCH", GENESIS_BACKEND, GENESIS_BRANCH_MODEL),
@@ -80,15 +157,15 @@ BUSINESS_WEIGHTS = {
     "factual_reliability": 0.08,
 }
 
-GENESIS_SYSTEM = """You are GENESIS in the AI Creativity Lab. Respond with JSON only."""
-GENESIS_DRAFT_SYSTEM = """You are GENESIS. Produce a strong first draft as JSON only."""
-SOCRATIC_INTERLOCUTOR_SYSTEM = """You are a Socratic interlocutor. Return JSON only."""
-GENESIS_REVISION_SYSTEM = """You are GENESIS revising a draft. Return JSON only."""
+GENESIS_SYSTEM = _load_prompt_override("genesis", """You are GENESIS in the AI Creativity Lab. Respond with JSON only.""")
+GENESIS_DRAFT_SYSTEM = _load_prompt_override("genesis_draft", """You are GENESIS. Produce a strong first draft as JSON only.""", min_length=100)
+SOCRATIC_INTERLOCUTOR_SYSTEM = _load_prompt_override("interlocutor", """You are a Socratic interlocutor. Return JSON only.""", min_length=100)
+GENESIS_REVISION_SYSTEM = _load_prompt_override("genesis_revision", """You are GENESIS revising a draft. Return JSON only.""", min_length=100)
 GENESIS_CONSTRAINT_REPAIR_SYSTEM = """You are GENESIS repairing hard constraints. Return JSON only."""
-MUSE_SYSTEM = """You are MUSE. Score the artifact and return strict JSON only."""
-MUSE_BUSINESS_SYSTEM = MUSE_SYSTEM
-HERMES_SYSTEM = """You are HERMES. Independently score the artifact and return strict JSON only."""
-HERMES_BUSINESS_SYSTEM = HERMES_SYSTEM
+MUSE_SYSTEM = _load_prompt_override("muse", """You are MUSE. Score the artifact and return strict JSON only.""", min_length=500)
+MUSE_BUSINESS_SYSTEM = _load_prompt_override("muse_business", MUSE_SYSTEM, min_length=500)
+HERMES_SYSTEM = _load_prompt_override("hermes", """You are HERMES. Independently score the artifact and return strict JSON only.""", min_length=500)
+HERMES_BUSINESS_SYSTEM = _load_prompt_override("hermes_business", HERMES_SYSTEM, min_length=500)
 
 
 def _is_retryable_model_error(exc):
@@ -273,7 +350,13 @@ async def run_genesis(prompt, constraints=None, prior_feedback=None, lane="creat
             artifact = raw_text
         return {"artifact": artifact, "process_trace": {"protocol": GENESIS_PROTOCOL, "parse_failure": True}}, _estimate_cost(response, "genesis"), True
 
-    artifact = result.get("artifact") or result.get("draft") or ""
+    artifact = (
+        result.get("artifact")
+        or result.get("draft")
+        or result.get("response")
+        or result.get("text")
+        or ""
+    )
     process_trace = result.get("process_trace") or {
         "protocol": GENESIS_PROTOCOL,
         "revision_status": "ok",
