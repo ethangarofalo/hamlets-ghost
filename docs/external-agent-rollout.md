@@ -7,6 +7,8 @@ This document defines how the Creativity Lab should integrate:
 - `Muse = internal evaluator` as the continuity anchor
 - `Hermes = external evaluator` as a true outside opinion
 
+See also: `docs/theron-genesis-adapter.md` for the Telegram-bot adapter contract for Theron as Genesis.
+
 The core principle is:
 - external opinion should increase epistemic tension without increasing operational chaos
 
