@@ -123,6 +123,13 @@ def _build_role_provenance(task):
             **agents.describe_role_runtime("muse"),
             "prompt_hash": MUSE_BUSINESS_HASH if lane == "business" else MUSE_HASH,
         },
+        "genesis_openclaw": {
+            **agents.describe_role_runtime("genesis_openclaw"),
+            "prompt_hash": GENESIS_HASH,
+            "shadow_only": True,
+            "enabled": bool(getattr(agents, "GENESIS_OPENCLAW_SHADOW_ENABLED", False)),
+            "eligible_families": sorted(getattr(agents, "GENESIS_OPENCLAW_FAMILIES", set())),
+        },
         "hermes": {
             **agents.describe_role_runtime("hermes"),
             "prompt_hash": HERMES_BUSINESS_HASH if lane == "business" else HERMES_HASH,
@@ -135,6 +142,15 @@ def _build_role_provenance(task):
             "enabled": bool(getattr(agents, "HERMES_EXTERNAL_SHADOW_ENABLED", False)),
         },
     }
+
+
+def _should_run_openclaw_shadow(task):
+    if not getattr(agents, "GENESIS_OPENCLAW_SHADOW_ENABLED", False):
+        return False
+    families = getattr(agents, "GENESIS_OPENCLAW_FAMILIES", set())
+    if not families:
+        return False
+    return task.get("family") in families
 
 
 def _forced_hermes_reason(experiment_id, muse_result):
@@ -232,6 +248,51 @@ async def _execute_experiment(task, iteration, consecutive_discards=0):
         process_trace.setdefault("role_routing", role_provenance)
         process_trace["orchestration"] = orchestration_trace
         await db.insert_artifact(exp_id, artifact_content, process_trace=process_trace, source_context={"role_routing": role_provenance})
+
+        if _should_run_openclaw_shadow(task):
+            try:
+                openclaw_result, openclaw_cost, openclaw_parse_failure = await agents.run_openclaw_genesis(
+                    prompt=task["prompt"],
+                    constraints=task.get("constraints"),
+                    lane=task.get("lane", "creative"),
+                    policy_context={
+                        "prompt_policy_variant": task.get("prompt_policy_variant"),
+                        "policy_source": task.get("policy_source"),
+                        "generation_guidance": task.get("generation_guidance"),
+                    },
+                )
+                total_cost += openclaw_cost or 0.0
+                process_trace.setdefault("shadow_generators", {})
+                process_trace["shadow_generators"]["genesis_openclaw"] = {
+                    "enabled": True,
+                    "backend": role_provenance["genesis_openclaw"]["backend"],
+                    "model": role_provenance["genesis_openclaw"]["model"],
+                    "parse_failure": bool(openclaw_parse_failure),
+                    "artifact_contract_status": (openclaw_result.get("process_trace") or {}).get("artifact_contract_status"),
+                    "artifact": openclaw_result.get("artifact"),
+                    "process_trace": openclaw_result.get("process_trace") or {},
+                }
+                source_context = {"role_routing": role_provenance, "shadow_generators": process_trace["shadow_generators"]}
+                await db.update_artifact_source_context(exp_id, source_context)
+            except Exception as exc:
+                process_trace.setdefault("shadow_generators", {})
+                process_trace["shadow_generators"]["genesis_openclaw"] = {
+                    "enabled": True,
+                    "backend": role_provenance["genesis_openclaw"]["backend"],
+                    "model": role_provenance["genesis_openclaw"]["model"],
+                    "error": str(exc),
+                }
+                source_context = {"role_routing": role_provenance, "shadow_generators": process_trace["shadow_generators"]}
+                await db.update_artifact_source_context(exp_id, source_context)
+        elif getattr(agents, "GENESIS_OPENCLAW_SHADOW_ENABLED", False):
+            process_trace.setdefault("shadow_generators", {})
+            process_trace["shadow_generators"]["genesis_openclaw"] = {
+                "enabled": True,
+                "skipped": True,
+                "reason": "family_not_enabled",
+            }
+            source_context = {"role_routing": role_provenance, "shadow_generators": process_trace["shadow_generators"]}
+            await db.update_artifact_source_context(exp_id, source_context)
 
         if not artifact_content.strip():
             process_trace["artifact_contract_status"] = "empty_artifact"

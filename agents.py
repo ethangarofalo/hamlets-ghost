@@ -34,6 +34,7 @@ HERMES_BACKEND = os.getenv("HERMES_BACKEND", os.getenv("HOLDOUT_BACKEND", "opena
 COUNCIL_BACKEND = os.getenv("COUNCIL_BACKEND", "openai").lower()
 INTERLOCUTOR_BACKEND = os.getenv("INTERLOCUTOR_BACKEND", COUNCIL_BACKEND).lower()
 HERMES_EXTERNAL_BACKEND = os.getenv("HERMES_EXTERNAL_BACKEND", "").strip().lower()
+GENESIS_OPENCLAW_BACKEND = os.getenv("GENESIS_OPENCLAW_BACKEND", "").strip().lower()
 
 MODEL = os.getenv("GENESIS_MODEL", os.getenv("OPENAI_MODEL", "gpt-4.1-mini"))
 MUSE_MODEL = os.getenv("MUSE_MODEL", os.getenv("OPENAI_MODEL", "gpt-4.1-mini"))
@@ -41,6 +42,7 @@ HERMES_MODEL = os.getenv("HERMES_MODEL", os.getenv("HOLDOUT_MODEL", os.getenv("O
 COUNCIL_MODEL = os.getenv("COUNCIL_MODEL", os.getenv("OPENAI_MODEL", "gpt-4.1-mini"))
 INTERLOCUTOR_MODEL = os.getenv("INTERLOCUTOR_MODEL", COUNCIL_MODEL)
 HERMES_EXTERNAL_MODEL = os.getenv("HERMES_EXTERNAL_MODEL", HERMES_MODEL)
+GENESIS_OPENCLAW_MODEL = os.getenv("GENESIS_OPENCLAW_MODEL", os.getenv("OPENCLAW_MODEL", "openclaw/latest"))
 GENESIS_PROTOCOL = os.getenv("GENESIS_PROTOCOL", "socratic").lower()
 GENESIS_BRANCH_COUNT = max(2, int(os.getenv("GENESIS_BRANCH_COUNT", "3")))
 GENESIS_BRANCH_MODEL = os.getenv("GENESIS_BRANCH_MODEL", MODEL)
@@ -52,6 +54,12 @@ MODEL_REQUEST_TIMEOUT_SECONDS = float(os.getenv("MODEL_REQUEST_TIMEOUT_SECONDS",
 MODEL_MAX_RETRIES = max(1, int(os.getenv("MODEL_MAX_RETRIES", "2")))
 MODEL_RETRY_BACKOFF_SECONDS = float(os.getenv("MODEL_RETRY_BACKOFF_SECONDS", "0.5"))
 HERMES_EXTERNAL_SHADOW_ENABLED = bool(HERMES_EXTERNAL_BACKEND)
+GENESIS_OPENCLAW_SHADOW_ENABLED = bool(GENESIS_OPENCLAW_BACKEND)
+GENESIS_OPENCLAW_FAMILIES = {
+    item.strip()
+    for item in os.getenv("GENESIS_OPENCLAW_FAMILIES", "").split(",")
+    if item.strip()
+}
 
 OPENAI_PRICING = {
     "gpt-5.1": {"input": 1.25, "output": 10.00},
@@ -141,6 +149,7 @@ def _load_prompt_override(role_name, fallback, min_length=200):
 ROLE_CONFIG = {
     "genesis": ("GENESIS", GENESIS_BACKEND, MODEL),
     "genesis_branch": ("GENESIS_BRANCH", GENESIS_BACKEND, GENESIS_BRANCH_MODEL),
+    "genesis_openclaw": ("GENESIS_OPENCLAW", GENESIS_OPENCLAW_BACKEND or GENESIS_BACKEND, GENESIS_OPENCLAW_MODEL),
     "muse": ("MUSE", MUSE_BACKEND, MUSE_MODEL),
     "hermes": ("HERMES", HERMES_BACKEND, HERMES_MODEL),
     "hermes_external": ("HERMES_EXTERNAL", HERMES_EXTERNAL_BACKEND or HERMES_BACKEND, HERMES_EXTERNAL_MODEL),
@@ -248,6 +257,7 @@ def describe_experiment_models():
     return json.dumps({
         "genesis": {"backend": GENESIS_BACKEND, "model": MODEL},
         "genesis_branch": {"backend": GENESIS_BACKEND, "model": GENESIS_BRANCH_MODEL},
+        "genesis_openclaw": {"backend": GENESIS_OPENCLAW_BACKEND or GENESIS_BACKEND, "model": GENESIS_OPENCLAW_MODEL},
         "muse": {"backend": MUSE_BACKEND, "model": MUSE_MODEL},
         "hermes": {"backend": HERMES_BACKEND, "model": HERMES_MODEL},
         "hermes_external": {"backend": HERMES_EXTERNAL_BACKEND or HERMES_BACKEND, "model": HERMES_EXTERNAL_MODEL},
@@ -393,7 +403,7 @@ def _normalize_genesis_artifact(result):
     return ""
 
 
-async def run_genesis(prompt, constraints=None, prior_feedback=None, lane="creative", policy_context=None, **_kwargs):
+async def _run_genesis_role(role, prompt, constraints=None, prior_feedback=None, lane="creative", policy_context=None, **_kwargs):
     policy_note = ""
     if policy_context:
         policy_note = f"\n\nPOLICY CONTEXT:\n{json.dumps(policy_context, sort_keys=True)}"
@@ -404,7 +414,7 @@ async def run_genesis(prompt, constraints=None, prior_feedback=None, lane="creat
         user_content += f"\n\nPRIOR FEEDBACK:\n{prior_feedback}"
 
     result, response, parse_failure = await _generate_json_with_retry(
-        role="genesis",
+        role=role,
         system=GENESIS_SYSTEM,
         user_content=user_content,
         max_tokens=2000,
@@ -412,10 +422,10 @@ async def run_genesis(prompt, constraints=None, prior_feedback=None, lane="creat
     if parse_failure:
         artifact = result["artifact"] if isinstance(result, dict) and result.get("artifact") else ""
         if not artifact:
-            raw_text, response = await _generate_text("genesis", GENESIS_SYSTEM, user_content, max_tokens=2000)
+            raw_text, response = await _generate_text(role, GENESIS_SYSTEM, user_content, max_tokens=2000)
             artifact = _coerce_text_value(raw_text)
         artifact = _coerce_text_value(artifact)
-        return {"artifact": artifact, "process_trace": {"protocol": GENESIS_PROTOCOL, "parse_failure": True}}, _estimate_cost(response, "genesis"), True
+        return {"artifact": artifact, "process_trace": {"protocol": GENESIS_PROTOCOL, "parse_failure": True}}, _estimate_cost(response, role), True
 
     artifact = _normalize_genesis_artifact(result)
     process_trace = result.get("process_trace") or {
@@ -436,7 +446,15 @@ async def run_genesis(prompt, constraints=None, prior_feedback=None, lane="creat
     process_trace.setdefault("artifact_contract_status", "ok" if artifact else "empty_artifact")
     if not artifact:
         process_trace.setdefault("generation_failure_reason", "empty_artifact_after_normalization")
-    return {"artifact": artifact, "process_trace": process_trace}, _estimate_cost(response, "genesis"), False
+    return {"artifact": artifact, "process_trace": process_trace}, _estimate_cost(response, role), False
+
+
+async def run_genesis(prompt, constraints=None, prior_feedback=None, lane="creative", policy_context=None, **_kwargs):
+    return await _run_genesis_role("genesis", prompt, constraints=constraints, prior_feedback=prior_feedback, lane=lane, policy_context=policy_context, **_kwargs)
+
+
+async def run_openclaw_genesis(prompt, constraints=None, prior_feedback=None, lane="creative", policy_context=None, **_kwargs):
+    return await _run_genesis_role("genesis_openclaw", prompt, constraints=constraints, prior_feedback=prior_feedback, lane=lane, policy_context=policy_context, **_kwargs)
 
 
 async def run_muse(artifact, prompt, constraints=None, lane="creative", **_kwargs):
