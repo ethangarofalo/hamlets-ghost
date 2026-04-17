@@ -2,6 +2,8 @@
 
 Hamlet's Ghost is a comparative-judgment instrument for characterizing LLM aesthetic preference.
 
+![Compiler Learning UI strip: one rule under watch, insufficient_data characterization, HOLD recommendation, 2 prompt families, 1 suppressed dual constraint-fail slice, 3 unreviewed.](docs/images/compiler-learning-strip.png)
+
 Its job is not just to generate outputs. Its job is to discover which model voices produce panel-preferred artifacts, where automated judges disagree, and how those preferences compare with human review.
 
 The core external value to watch for is simple:

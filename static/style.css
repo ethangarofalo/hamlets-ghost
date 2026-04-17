@@ -329,6 +329,10 @@ body {
     border-color: rgba(216, 179, 106, 0.34);
 }
 
+.rule-proposal-item.hold {
+    border-color: rgba(144, 196, 216, 0.22);
+}
+
 .rule-proposal-item.rule-characterization-divergent {
     border-color: rgba(235, 123, 114, 0.7);
     box-shadow: 0 0 0 1px rgba(235, 123, 114, 0.16);
@@ -399,6 +403,10 @@ body {
 
 .rule-proposal-item.watch .rule-proposal-transition {
     color: var(--yellow);
+}
+
+.rule-proposal-item.hold .rule-proposal-transition {
+    color: var(--text-dim);
 }
 
 .rule-proposal-title {

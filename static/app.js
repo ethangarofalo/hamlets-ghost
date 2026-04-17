@@ -206,14 +206,15 @@ function renderRulePromotionProposals(report) {
     if (!strip || !countEl || !bodyEl) return;
 
     const proposals = Array.isArray(report?.proposals) ? report.proposals : [];
-    const actionable = proposals.filter(item => item.recommendation === 'promote' || item.recommendation === 'watch');
-    const promotions = actionable.filter(item => item.recommendation === 'promote');
-    const watches = actionable.filter(item => item.recommendation === 'watch');
-    countEl.textContent = `${promotions.length} promotion${promotions.length === 1 ? '' : 's'} · ${watches.length} watch`;
-    strip.classList.toggle('has-proposals', actionable.length > 0);
+    const visible = proposals.filter(item => ['promote', 'watch', 'hold'].includes(item.recommendation));
+    const promotions = visible.filter(item => item.recommendation === 'promote');
+    const watches = visible.filter(item => item.recommendation === 'watch');
+    const holds = visible.filter(item => item.recommendation === 'hold');
+    countEl.textContent = `${promotions.length} promotion${promotions.length === 1 ? '' : 's'} · ${watches.length} watch · ${holds.length} hold`;
+    strip.classList.toggle('has-proposals', visible.length > 0);
     const characterizationMap = renderRuleCharacterizationMap(proposals);
 
-    if (!actionable.length) {
+    if (!visible.length) {
         bodyEl.innerHTML = `
             <div class="rule-proposal-stack">
                 ${characterizationMap}
@@ -224,16 +225,17 @@ function renderRulePromotionProposals(report) {
         return;
     }
 
-    const actionRows = actionable.slice(0, 3).map(item => {
+    const actionRows = visible.slice(0, 3).map(item => {
         const metrics = item.metrics || {};
         const transition = item.recommendation === 'promote'
             ? `${item.current_status} → ${item.proposed_status}`
-            : 'watch';
+            : item.recommendation;
         const humanWinRate = metrics.human_win_rate == null ? 'no decisive human rate' : `${Number(metrics.human_win_rate).toFixed(2)} human win rate`;
         const characterization = item.characterization || 'insufficient_data';
         const eligibleSlices = metrics.eligible_slices ?? metrics.total_slices ?? 0;
         const suppressedSlices = metrics.suppressed_dual_constraint_fail || 0;
         const suppressedNote = suppressedSlices ? ` · ${suppressedSlices} suppressed dual-fail` : '';
+        const unreviewedNote = metrics.human_unreviewed ? ` · ${metrics.human_unreviewed} unreviewed` : '';
         return `
             <div class="rule-proposal-item ${item.recommendation} rule-characterization-${escapeHtml(characterization)}">
                 <div class="rule-proposal-item-main">
@@ -241,10 +243,10 @@ function renderRulePromotionProposals(report) {
                     <span class="rule-proposal-title">${escapeHtml(item.title || item.rule_key || 'Untitled rule')}</span>
                 </div>
                 <div class="rule-proposal-item-meta">
-                    ${escapeHtml(`${metrics.support_packets || 0} packets · ${metrics.support_families || 0} families · ${humanWinRate}`)}
+                    ${escapeHtml(`${metrics.support_packets || 0} packets · ${metrics.support_families || 0} prompt families · ${metrics.support_model_families || 0} model families · ${humanWinRate}`)}
                 </div>
                 <div class="rule-proposal-item-meta rule-proposal-characterization">
-                    ${escapeHtml(`${formatRuleCharacterizationLabel(characterization)} · panel ${metrics.evaluator_helped || 0}/${eligibleSlices}${suppressedNote} · human ${metrics.human_helped || 0}/${metrics.human_decisive || 0}`)}
+                    ${escapeHtml(`${formatRuleCharacterizationLabel(characterization)} · panel ${metrics.evaluator_helped || 0}/${eligibleSlices}${suppressedNote} · human ${metrics.human_decisive || 0} decisive${unreviewedNote}`)}
                 </div>
             </div>
         `;
@@ -261,7 +263,7 @@ function formatRulePromotionThresholds(thresholds = {}) {
 }
 
 function formatRuleCharacterizationLabel(label) {
-    return String(label || 'insufficient_data').replace(/_/g, ' ');
+    return String(label || 'insufficient_data');
 }
 
 function renderRuleCharacterizationMap(proposals) {
