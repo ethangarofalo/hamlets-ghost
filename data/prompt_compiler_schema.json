@@ -1,0 +1,215 @@
+{
+  "schema_version": "0.1",
+  "description": "Structured output contract for the Hamlet's Ghost prompt compiler. The compiler turns a rough user request into a governed compiled prompt with diagnosis, risk, and rule provenance.",
+  "required": [
+    "source_request",
+    "diagnosis",
+    "risk_assessment",
+    "policy_selection",
+    "compiled_prompt",
+    "traceability"
+  ],
+  "fields": {
+    "source_request": {
+      "type": "object",
+      "required": [
+        "raw_request"
+      ],
+      "properties": {
+        "raw_request": {
+          "type": "string",
+          "description": "The original user request exactly as provided."
+        },
+        "user_context": {
+          "type": "array",
+          "items": "string",
+          "description": "Optional user-supplied context that should inform the compilation."
+        },
+        "hard_constraints": {
+          "type": "array",
+          "items": "string",
+          "description": "Explicit non-negotiable constraints attached to the request."
+        }
+      }
+    },
+    "diagnosis": {
+      "type": "object",
+      "required": [
+        "lane",
+        "prompt_family",
+        "intended_audience",
+        "piece_goal",
+        "stakes",
+        "relation",
+        "output_form",
+        "composition_mode",
+        "ambiguity_level"
+      ],
+      "properties": {
+        "lane": {
+          "type": "enum",
+          "values": [
+            "creative",
+            "business",
+            "hybrid"
+          ]
+        },
+        "prompt_family": {
+          "type": "string"
+        },
+        "intended_audience": {
+          "type": "string"
+        },
+        "piece_goal": {
+          "type": "string"
+        },
+        "stakes": {
+          "type": "string"
+        },
+        "relation": {
+          "type": "string"
+        },
+        "output_form": {
+          "type": "string"
+        },
+        "composition_mode": {
+          "type": "enum",
+          "values": [
+            "creative_open",
+            "strict_framework",
+            "hybrid"
+          ]
+        },
+        "ambiguity_level": {
+          "type": "enum",
+          "values": [
+            "low",
+            "medium",
+            "high"
+          ]
+        }
+      }
+    },
+    "risk_assessment": {
+      "type": "object",
+      "required": [
+        "likely_failure_modes",
+        "shared_evaluator_blind_spots",
+        "needs_clarification"
+      ],
+      "properties": {
+        "likely_failure_modes": {
+          "type": "array",
+          "items": "string"
+        },
+        "shared_evaluator_blind_spots": {
+          "type": "array",
+          "items": "string"
+        },
+        "needs_clarification": {
+          "type": "boolean"
+        },
+        "clarification_targets": {
+          "type": "array",
+          "items": "string"
+        }
+      }
+    },
+    "policy_selection": {
+      "type": "object",
+      "required": [
+        "selected_rule_ids",
+        "suppression_constraints",
+        "preservation_moves",
+        "structure_moves"
+      ],
+      "properties": {
+        "selected_rule_ids": {
+          "type": "array",
+          "items": "string"
+        },
+        "suppression_constraints": {
+          "type": "array",
+          "items": "string"
+        },
+        "preservation_moves": {
+          "type": "array",
+          "items": "string"
+        },
+        "structure_moves": {
+          "type": "array",
+          "items": "string"
+        },
+        "assumptions": {
+          "type": "array",
+          "items": "string"
+        }
+      }
+    },
+    "compiled_prompt": {
+      "type": "object",
+      "required": [
+        "system_goal",
+        "prompt_text"
+      ],
+      "properties": {
+        "system_goal": {
+          "type": "string",
+          "description": "Short statement of what the downstream model should accomplish."
+        },
+        "prompt_text": {
+          "type": "string",
+          "description": "The fully compiled prompt sent to the downstream model."
+        },
+        "success_criteria": {
+          "type": "array",
+          "items": "string"
+        }
+      }
+    },
+    "traceability": {
+      "type": "object",
+      "required": [
+        "rule_justifications",
+        "evidence_basis"
+      ],
+      "properties": {
+        "rule_justifications": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "rule_id",
+              "reason"
+            ],
+            "properties": {
+              "rule_id": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "evidence_basis": {
+          "type": "object",
+          "properties": {
+            "prompt_family_basis": {
+              "type": "array",
+              "items": "string"
+            },
+            "council_action_ids": {
+              "type": "array",
+              "items": "integer"
+            },
+            "reference_pack_ids": {
+              "type": "array",
+              "items": "integer"
+            }
+          }
+        }
+      }
+    }
+  }
+}

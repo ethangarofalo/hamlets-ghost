@@ -1,0 +1,299 @@
+{
+  "version": "0.1.0",
+  "description": "Seed taxonomy for Hamlet's Ghost taste memory. Entries are either seeded from Lumafox anti-pattern research or emergent from lab packet evidence. The compiler merges both sources; packet evidence always takes precedence over seed descriptions.",
+  "origin": "Lumafox Anti-Pattern Taxonomy v1.0.0, adapted for comparative judgment",
+
+  "anti_patterns": {
+    "description": "Structural failure patterns in generated artifacts. Each entry describes a CLASS of failure — not a specific phrase but a recognizable structural formula. Patterns may apply to generation, evaluation, or both.",
+    "entries": [
+      {
+        "id": "AP-001",
+        "tag": "antithetical_formula",
+        "name": "The Antithetical Formula",
+        "domain": "generation",
+        "lanes": ["creative"],
+        "template": "doesn't just X — he Y",
+        "description": "Any sentence where the first clause negates or sets up a reframe that the second clause delivers. The construction pre-digests the insight for the reader instead of letting juxtaposition do the work.",
+        "why_it_fails": "Hands the reader the turn rather than letting them discover it. Real prose lets the juxtaposition speak without scaffolding.",
+        "correction_strategy": "Place the two ideas next to each other and trust the reader.",
+        "examples_bad": [
+          "He doesn't just avoid the game — he builds an entire theology around refusal.",
+          "This isn't about politics — it's about the stories we tell ourselves."
+        ],
+        "examples_good": [
+          "He builds an entire theology around refusal."
+        ],
+        "detection_difficulty": "medium",
+        "frequency": "very_high",
+        "source": "lumafox_taxonomy_v1"
+      },
+      {
+        "id": "AP-002",
+        "tag": "formulaic_parallel",
+        "name": "Formulaic Parallel Construction",
+        "domain": "generation",
+        "lanes": ["creative"],
+        "template": "turns his X into Y, his A into B",
+        "description": "Stacked parallel phrases where each element maps one domain onto another in the same grammatical frame. Looks like craft but is assembly-line rhetoric.",
+        "why_it_fails": "The parallel structure does the thinking for the reader. Each pair clicks into place too neatly. One strong observation is enough if it's the right one.",
+        "correction_strategy": "Commit to one strong observation. Let it breathe.",
+        "examples_bad": [
+          "turns his paralysis into a moral system, his fear into a philosophy",
+          "where others see failure he finds vindication, where they see weakness he builds strength"
+        ],
+        "examples_good": [
+          "His paralysis becomes a moral system."
+        ],
+        "detection_difficulty": "medium",
+        "frequency": "high",
+        "source": "lumafox_taxonomy_v1"
+      },
+      {
+        "id": "AP-003",
+        "tag": "stacked_poetic_devices",
+        "name": "Stacked Poetic Devices",
+        "domain": "generation",
+        "lanes": ["creative"],
+        "template": "metaphor + alliteration + parallel in one sentence",
+        "description": "Multiple rhetorical devices layered into a single sentence, producing something that reads like prize prose but says nothing precise.",
+        "why_it_fails": "Poetic density without earned context. Each device competes for attention. The sentence becomes about its own cleverness rather than its subject.",
+        "correction_strategy": "One device per sentence, chosen because it reveals something.",
+        "examples_bad": [
+          "wear their weakness like a scar they refuse to powder over",
+          "the silence between them grew teeth and learned to bite"
+        ],
+        "examples_good": [
+          "He won't hide the weakness."
+        ],
+        "detection_difficulty": "hard",
+        "frequency": "high",
+        "source": "lumafox_taxonomy_v1"
+      },
+      {
+        "id": "AP-004",
+        "tag": "reframe_pivot",
+        "name": "The Reframe Pivot",
+        "domain": "generation",
+        "lanes": ["creative", "business"],
+        "template": "The real [noun] isn't X — it's Y",
+        "description": "Claims to reveal what something is really about by negating the obvious reading and substituting a deeper one. A formula for appearing insightful.",
+        "why_it_fails": "The 'real X' construction promises depth but delivers a pivot the reader can see coming by the third word.",
+        "correction_strategy": "State the deeper reading directly. If it's true, it doesn't need theatrical setup.",
+        "examples_bad": [
+          "The real tragedy isn't his death — it's that he saw it coming.",
+          "What matters here isn't the betrayal — it's the silence that followed."
+        ],
+        "examples_good": [
+          "He saw it coming."
+        ],
+        "detection_difficulty": "easy",
+        "frequency": "very_high",
+        "source": "lumafox_taxonomy_v1"
+      },
+      {
+        "id": "AP-005",
+        "tag": "hedged_profundity",
+        "name": "Hedged Profundity",
+        "domain": "generation",
+        "lanes": ["creative", "business"],
+        "template": "There's something [almost/deeply] [adjective] about...",
+        "description": "Signals depth without committing to a specific observation. The adjective slot can be filled with almost anything, which is the tell — if the frame works with any adjective, the frame is doing the work, not the thought.",
+        "why_it_fails": "The construction gestures at meaning without producing it. It's a placeholder for insight.",
+        "correction_strategy": "Name the specific thing. Replace the hedge with the observation itself.",
+        "examples_bad": [
+          "There's something almost sacred about the way he refuses to answer.",
+          "There's something deeply unsettling about this silence."
+        ],
+        "examples_good": [
+          "His refusal to answer has become a kind of liturgy."
+        ],
+        "detection_difficulty": "easy",
+        "frequency": "very_high",
+        "source": "lumafox_taxonomy_v1"
+      },
+      {
+        "id": "AP-006",
+        "tag": "over_expansion",
+        "name": "Over-Expansion",
+        "domain": "generation",
+        "lanes": ["creative", "business"],
+        "template": null,
+        "description": "Three paragraphs when one would do. The output restates, elaborates, and re-summarizes the same point without adding information.",
+        "why_it_fails": "Dilutes the strongest version of the idea. The best sentence gets buried in its own echoes.",
+        "correction_strategy": "Say it once, say it well, stop.",
+        "examples_bad": [],
+        "examples_good": [],
+        "detection_difficulty": "easy",
+        "frequency": "very_high",
+        "source": "lumafox_taxonomy_v1"
+      },
+      {
+        "id": "AP-007",
+        "tag": "performative_confidence",
+        "name": "Performative Confidence",
+        "domain": "generation",
+        "lanes": ["business"],
+        "template": null,
+        "description": "Business-lane outputs that project certainty without evidence. Assertions about market position, user needs, or strategic direction that sound authoritative but rest on nothing specific.",
+        "why_it_fails": "Trustworthy business writing earns confidence through specificity. Performed confidence reads as empty to anyone who knows the domain.",
+        "correction_strategy": "Replace assertions with evidence. If the evidence doesn't exist, say so.",
+        "examples_bad": [
+          "Our unique approach positions us perfectly to capture this market.",
+          "Users are increasingly demanding exactly this kind of solution."
+        ],
+        "examples_good": [
+          "Three of our five pilot customers renewed without a sales call."
+        ],
+        "detection_difficulty": "medium",
+        "frequency": "high",
+        "source": "lab_observation"
+      },
+      {
+        "id": "AP-008",
+        "tag": "generic_reassurance",
+        "name": "Generic Reassurance",
+        "domain": "generation",
+        "lanes": ["business"],
+        "template": null,
+        "description": "Business-lane outputs that soothe rather than inform. Retention emails, apology copy, and strategy memos that could apply to any company because they say nothing specific to this one.",
+        "why_it_fails": "Reassurance without specificity reads as form letter. The reader recognizes the template.",
+        "correction_strategy": "Name the specific situation, the specific loss, the specific remedy. If it could be sent by any company, rewrite it.",
+        "examples_bad": [
+          "We value your feedback and are committed to continuous improvement.",
+          "We understand your frustration and want you to know we're working on it."
+        ],
+        "examples_good": [
+          "The export bug that hit your Thursday report is fixed. Here's what happened."
+        ],
+        "detection_difficulty": "easy",
+        "frequency": "high",
+        "source": "lab_observation"
+      }
+    ]
+  },
+
+  "quality_signals": {
+    "description": "Positive patterns that indicate genuine craft. These are what the lab rewards, not just what it penalizes. Quality signals are harder to codify than anti-patterns because they depend on context, but recurring human preferences point to these.",
+    "entries": [
+      {
+        "id": "QS-001",
+        "tag": "earned_metaphor",
+        "name": "Earned Metaphor",
+        "domain": "generation",
+        "lanes": ["creative"],
+        "description": "A single extended metaphor that the artifact commits to and develops, rather than stacking multiple metaphors for density. The metaphor earns its place by revealing something about the subject.",
+        "why_it_works": "Commitment to one metaphor creates coherence. The reader follows one thread of meaning rather than being dazzled by many.",
+        "detection_difficulty": "hard",
+        "source": "lab_observation"
+      },
+      {
+        "id": "QS-002",
+        "tag": "showing_not_telling",
+        "name": "Showing Not Telling",
+        "domain": "generation",
+        "lanes": ["creative"],
+        "description": "The artifact conveys its subject through scene, atmosphere, and implication rather than explicit statement. The concept inhabits the text even if the label word never appears.",
+        "why_it_works": "Treats the reader as intelligent. Creates texture and experience rather than summary. The LVF-50 baseline found that naive evaluation penalizes this — which means evaluators must be calibrated to recognize it.",
+        "evaluator_note": "Evaluators that check for keyword presence will systematically penalize the best instances of this signal. See LVF-50 Finding 1.",
+        "detection_difficulty": "hard",
+        "source": "lumafox_lvf50"
+      },
+      {
+        "id": "QS-003",
+        "tag": "specific_detail",
+        "name": "Specific Detail Over Generic Claim",
+        "domain": "generation",
+        "lanes": ["creative", "business"],
+        "description": "The artifact uses concrete, particular details rather than abstract assertions. Names, numbers, textures, specific situations rather than categorical statements.",
+        "why_it_works": "Specificity is the fastest signal of real knowledge. Generic claims can be produced by any model; specific details require either real knowledge or genuine imaginative commitment.",
+        "detection_difficulty": "medium",
+        "source": "lab_observation"
+      },
+      {
+        "id": "QS-004",
+        "tag": "trustworthy_tone",
+        "name": "Trustworthy Tone",
+        "domain": "generation",
+        "lanes": ["business"],
+        "description": "Business writing that earns trust through candor, specificity, and restraint rather than through polish and reassurance. Acknowledges limits. Names specifics. Does not oversell.",
+        "why_it_works": "Trust is built by saying less than you could, not more than you should. The reader trusts the writer who acknowledges what they don't know.",
+        "detection_difficulty": "medium",
+        "source": "lab_observation"
+      }
+    ]
+  },
+
+  "evaluator_failure_modes": {
+    "description": "Anti-patterns in evaluation rather than generation. These describe systematic ways automated judges misread artifact quality.",
+    "entries": [
+      {
+        "id": "EF-001",
+        "tag": "keyword_presence_bias",
+        "name": "Keyword Presence Bias",
+        "domain": "evaluation",
+        "description": "Evaluators that check for explicit mention of assigned concepts rather than atmospheric or implied presence. Penalizes showing-not-telling. Rewards literal compliance over craft.",
+        "why_it_fails": "The best creative artifacts often convey their subject without naming it. An evaluator that demands the word 'ghost' will fail on the best ghost stories.",
+        "correction_strategy": "Evaluate semantic presence, not string presence. Does the concept inhabit the text even if the word doesn't?",
+        "affected_judges": [],
+        "affected_families": [],
+        "source": "lumafox_lvf50"
+      },
+      {
+        "id": "EF-002",
+        "tag": "coherence_over_life",
+        "name": "Coherence Over Life",
+        "domain": "evaluation",
+        "description": "Evaluators that reward structural coherence and safety over vividness, risk, and emotional pressure. Produces a systematic preference for competent-but-flat over alive-but-uneven.",
+        "why_it_fails": "Coherence is necessary but not sufficient. An artifact can be perfectly coherent and completely forgettable. Human reviewers often prefer the artifact with more life, even if it's rougher.",
+        "correction_strategy": "When scoring, weight vividness and memorability alongside coherence. A safe artifact should not automatically outscore a vivid one.",
+        "affected_judges": [],
+        "affected_families": [],
+        "source": "lab_observation"
+      },
+      {
+        "id": "EF-003",
+        "tag": "novelty_penalty",
+        "name": "Novelty Penalty",
+        "domain": "evaluation",
+        "description": "Evaluators that treat unfamiliar structures, unexpected tonal choices, or unconventional approaches as errors rather than as creative risk. Systematically conservative.",
+        "why_it_fails": "The most interesting artifacts are often the ones that don't fit the expected template. An evaluator calibrated on 'normal good' will miss 'surprisingly good.'",
+        "correction_strategy": "Distinguish between incoherent and unexpected. Penalize the former, investigate the latter.",
+        "affected_judges": [],
+        "affected_families": [],
+        "source": "lab_observation"
+      },
+      {
+        "id": "EF-004",
+        "tag": "rhetorical_situation_blindness",
+        "name": "Rhetorical Situation Blindness",
+        "domain": "evaluation",
+        "description": "Evaluators judge style and local craft without adequately considering audience, relation, stakes, or the obligations of the form. A move that works in a speech or manifesto gets overrated in a resignation letter, apology, or private note.",
+        "why_it_fails": "Good writing is situational. A judge that ignores rhetorical setting will reward force, repetition, or elevation where the form actually requires precision, candor, restraint, or intimacy.",
+        "correction_strategy": "Score rhetorical devices against audience and occasion. Ask what this piece owes its reader before rewarding intensity or flourish.",
+        "affected_judges": [],
+        "affected_families": [],
+        "source": "lab_observation"
+      },
+      {
+        "id": "EF-005",
+        "tag": "solemnity_halo",
+        "name": "Solemnity Halo",
+        "domain": "evaluation",
+        "description": "Evaluators over-reward elevated seriousness, composed diction, and tasteful gravity as if these were evidence of real value or wisdom.",
+        "why_it_fails": "Serious tone can simulate significance. A judge under solemnity halo will confuse moral atmosphere with moral intelligence and mistake prestige aura for durable worth.",
+        "correction_strategy": "Ask what the artifact actually reveals, risks, or clarifies beyond tone. Treat seriousness as neutral until it is earned by pressure, insight, or exactness.",
+        "affected_judges": [],
+        "affected_families": [],
+        "source": "lab_observation"
+      }
+    ]
+  },
+
+  "promotion_rules": {
+    "description": "Rules for when observations graduate to stable taxonomy entries.",
+    "tag_to_concept_threshold": 3,
+    "concept_to_taxonomy_requires": ["recurrence", "structural_identity", "correctability"],
+    "human_confirmation_required_for": ["high_confidence", "taxonomy_promotion"],
+    "note": "A pattern must appear across 3+ packets before it becomes a concept page. Promotion to a stable taxonomy entry additionally requires that the pattern is structurally identifiable as a class and has a documented correction strategy. Human confirmation is required for high-confidence status."
+  }
+}

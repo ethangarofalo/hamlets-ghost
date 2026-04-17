@@ -1,0 +1,261 @@
+{
+  "version": "0.1.0",
+  "compiled_at": "2026-04-05T02:44:28Z",
+  "epoch": "native_cast",
+  "summary": {
+    "promoted": 0,
+    "merged": 0,
+    "emergent": 0,
+    "seeded": 15,
+    "total": 15
+  },
+  "promotion_criteria": {
+    "min_packets": 5,
+    "min_distinct_families": 2,
+    "requires_correction_strategy": true,
+    "requires_human_confirmation": true
+  },
+  "promoted": [],
+  "merged": [],
+  "emergent": [],
+  "seeded": [
+    {
+      "tag": "antithetical_formula",
+      "domain": "anti-pattern",
+      "provenance": "seeded",
+      "evidence_count": 0,
+      "distinct_families": 0,
+      "name": "The Antithetical Formula",
+      "id": "AP-001",
+      "description": "Any sentence where the first clause negates or sets up a reframe that the second clause delivers. The construction pre-digests the insight for the reader instead of letting juxtaposition do the work.",
+      "correction_strategy": "Place the two ideas next to each other and trust the reader.",
+      "detection_difficulty": "medium",
+      "lanes": [
+        "creative"
+      ],
+      "source": "lumafox_taxonomy_v1"
+    },
+    {
+      "tag": "formulaic_parallel",
+      "domain": "anti-pattern",
+      "provenance": "seeded",
+      "evidence_count": 0,
+      "distinct_families": 0,
+      "name": "Formulaic Parallel Construction",
+      "id": "AP-002",
+      "description": "Stacked parallel phrases where each element maps one domain onto another in the same grammatical frame. Looks like craft but is assembly-line rhetoric.",
+      "correction_strategy": "Commit to one strong observation. Let it breathe.",
+      "detection_difficulty": "medium",
+      "lanes": [
+        "creative"
+      ],
+      "source": "lumafox_taxonomy_v1"
+    },
+    {
+      "tag": "stacked_poetic_devices",
+      "domain": "anti-pattern",
+      "provenance": "seeded",
+      "evidence_count": 0,
+      "distinct_families": 0,
+      "name": "Stacked Poetic Devices",
+      "id": "AP-003",
+      "description": "Multiple rhetorical devices layered into a single sentence, producing something that reads like prize prose but says nothing precise.",
+      "correction_strategy": "One device per sentence, chosen because it reveals something.",
+      "detection_difficulty": "hard",
+      "lanes": [
+        "creative"
+      ],
+      "source": "lumafox_taxonomy_v1"
+    },
+    {
+      "tag": "reframe_pivot",
+      "domain": "anti-pattern",
+      "provenance": "seeded",
+      "evidence_count": 0,
+      "distinct_families": 0,
+      "name": "The Reframe Pivot",
+      "id": "AP-004",
+      "description": "Claims to reveal what something is really about by negating the obvious reading and substituting a deeper one. A formula for appearing insightful.",
+      "correction_strategy": "State the deeper reading directly. If it's true, it doesn't need theatrical setup.",
+      "detection_difficulty": "easy",
+      "lanes": [
+        "creative",
+        "business"
+      ],
+      "source": "lumafox_taxonomy_v1"
+    },
+    {
+      "tag": "hedged_profundity",
+      "domain": "anti-pattern",
+      "provenance": "seeded",
+      "evidence_count": 0,
+      "distinct_families": 0,
+      "name": "Hedged Profundity",
+      "id": "AP-005",
+      "description": "Signals depth without committing to a specific observation. The adjective slot can be filled with almost anything, which is the tell — if the frame works with any adjective, the frame is doing the work, not the thought.",
+      "correction_strategy": "Name the specific thing. Replace the hedge with the observation itself.",
+      "detection_difficulty": "easy",
+      "lanes": [
+        "creative",
+        "business"
+      ],
+      "source": "lumafox_taxonomy_v1"
+    },
+    {
+      "tag": "over_expansion",
+      "domain": "anti-pattern",
+      "provenance": "seeded",
+      "evidence_count": 0,
+      "distinct_families": 0,
+      "name": "Over-Expansion",
+      "id": "AP-006",
+      "description": "Three paragraphs when one would do. The output restates, elaborates, and re-summarizes the same point without adding information.",
+      "correction_strategy": "Say it once, say it well, stop.",
+      "detection_difficulty": "easy",
+      "lanes": [
+        "creative",
+        "business"
+      ],
+      "source": "lumafox_taxonomy_v1"
+    },
+    {
+      "tag": "performative_confidence",
+      "domain": "anti-pattern",
+      "provenance": "seeded",
+      "evidence_count": 0,
+      "distinct_families": 0,
+      "name": "Performative Confidence",
+      "id": "AP-007",
+      "description": "Business-lane outputs that project certainty without evidence. Assertions about market position, user needs, or strategic direction that sound authoritative but rest on nothing specific.",
+      "correction_strategy": "Replace assertions with evidence. If the evidence doesn't exist, say so.",
+      "detection_difficulty": "medium",
+      "lanes": [
+        "business"
+      ],
+      "source": "lab_observation"
+    },
+    {
+      "tag": "generic_reassurance",
+      "domain": "anti-pattern",
+      "provenance": "seeded",
+      "evidence_count": 0,
+      "distinct_families": 0,
+      "name": "Generic Reassurance",
+      "id": "AP-008",
+      "description": "Business-lane outputs that soothe rather than inform. Retention emails, apology copy, and strategy memos that could apply to any company because they say nothing specific to this one.",
+      "correction_strategy": "Name the specific situation, the specific loss, the specific remedy. If it could be sent by any company, rewrite it.",
+      "detection_difficulty": "easy",
+      "lanes": [
+        "business"
+      ],
+      "source": "lab_observation"
+    },
+    {
+      "tag": "earned_metaphor",
+      "domain": "quality-signal",
+      "provenance": "seeded",
+      "evidence_count": 0,
+      "distinct_families": 0,
+      "name": "Earned Metaphor",
+      "id": "QS-001",
+      "description": "A single extended metaphor that the artifact commits to and develops, rather than stacking multiple metaphors for density. The metaphor earns its place by revealing something about the subject.",
+      "correction_strategy": null,
+      "detection_difficulty": "hard",
+      "lanes": [
+        "creative"
+      ],
+      "source": "lab_observation"
+    },
+    {
+      "tag": "showing_not_telling",
+      "domain": "quality-signal",
+      "provenance": "seeded",
+      "evidence_count": 0,
+      "distinct_families": 0,
+      "name": "Showing Not Telling",
+      "id": "QS-002",
+      "description": "The artifact conveys its subject through scene, atmosphere, and implication rather than explicit statement. The concept inhabits the text even if the label word never appears.",
+      "correction_strategy": null,
+      "detection_difficulty": "hard",
+      "lanes": [
+        "creative"
+      ],
+      "source": "lumafox_lvf50"
+    },
+    {
+      "tag": "specific_detail",
+      "domain": "quality-signal",
+      "provenance": "seeded",
+      "evidence_count": 0,
+      "distinct_families": 0,
+      "name": "Specific Detail Over Generic Claim",
+      "id": "QS-003",
+      "description": "The artifact uses concrete, particular details rather than abstract assertions. Names, numbers, textures, specific situations rather than categorical statements.",
+      "correction_strategy": null,
+      "detection_difficulty": "medium",
+      "lanes": [
+        "creative",
+        "business"
+      ],
+      "source": "lab_observation"
+    },
+    {
+      "tag": "trustworthy_tone",
+      "domain": "quality-signal",
+      "provenance": "seeded",
+      "evidence_count": 0,
+      "distinct_families": 0,
+      "name": "Trustworthy Tone",
+      "id": "QS-004",
+      "description": "Business writing that earns trust through candor, specificity, and restraint rather than through polish and reassurance. Acknowledges limits. Names specifics. Does not oversell.",
+      "correction_strategy": null,
+      "detection_difficulty": "medium",
+      "lanes": [
+        "business"
+      ],
+      "source": "lab_observation"
+    },
+    {
+      "tag": "keyword_presence_bias",
+      "domain": "evaluator-failure",
+      "provenance": "seeded",
+      "evidence_count": 0,
+      "distinct_families": 0,
+      "name": "Keyword Presence Bias",
+      "id": "EF-001",
+      "description": "Evaluators that check for explicit mention of assigned concepts rather than atmospheric or implied presence. Penalizes showing-not-telling. Rewards literal compliance over craft.",
+      "correction_strategy": "Evaluate semantic presence, not string presence. Does the concept inhabit the text even if the word doesn't?",
+      "detection_difficulty": null,
+      "lanes": [],
+      "source": "lumafox_lvf50"
+    },
+    {
+      "tag": "coherence_over_life",
+      "domain": "evaluator-failure",
+      "provenance": "seeded",
+      "evidence_count": 0,
+      "distinct_families": 0,
+      "name": "Coherence Over Life",
+      "id": "EF-002",
+      "description": "Evaluators that reward structural coherence and safety over vividness, risk, and emotional pressure. Produces a systematic preference for competent-but-flat over alive-but-uneven.",
+      "correction_strategy": "When scoring, weight vividness and memorability alongside coherence. A safe artifact should not automatically outscore a vivid one.",
+      "detection_difficulty": null,
+      "lanes": [],
+      "source": "lab_observation"
+    },
+    {
+      "tag": "novelty_penalty",
+      "domain": "evaluator-failure",
+      "provenance": "seeded",
+      "evidence_count": 0,
+      "distinct_families": 0,
+      "name": "Novelty Penalty",
+      "id": "EF-003",
+      "description": "Evaluators that treat unfamiliar structures, unexpected tonal choices, or unconventional approaches as errors rather than as creative risk. Systematically conservative.",
+      "correction_strategy": "Distinguish between incoherent and unexpected. Penalize the former, investigate the latter.",
+      "detection_difficulty": null,
+      "lanes": [],
+      "source": "lab_observation"
+    }
+  ]
+}

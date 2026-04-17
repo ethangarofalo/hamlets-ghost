@@ -1,0 +1,177 @@
+{
+  "schema_version": "0.1",
+  "description": "Structured evidence contract for a prompt-transformation rule under test in Hamlet's Ghost. This ledger preserves scope, outcomes, and promotion readiness without collapsing panel-specific preferences into universal findings.",
+  "characterization_axes": {
+    "description": "Per-rule classification computed from the 2x2 relationship between panel preference and human preference. Evidence slices keep their existing human_signal and evaluator_signal fields; the characterization label is computed at rule level.",
+    "panel_preference_axis": "Whether the evaluator panel prefers outputs produced with the rule at or above panel_preference_rate.",
+    "human_preference_axis": "Whether decisive human reviews prefer, disprefer, or are neutral toward outputs produced with the rule.",
+    "labels": {
+      "aligned": "Panel prefers the rule and humans also prefer it.",
+      "divergent": "Panel prefers the rule while humans disprefer it.",
+      "llm_specific": "Panel prefers the rule while humans are neutral or mixed.",
+      "human_specific": "Humans prefer the rule but the panel does not.",
+      "neutral": "Neither side shows a strong preference.",
+      "insufficient_data": "Too few decisive human reviews exist to characterize the rule."
+    },
+    "divergent_authorization": "A divergent characterization is an escalation signal, not an automatic demotion or correction. It authorizes dashboard prominence, wiki annotation, and human review of the rule/panel/reviewer relationship. It does not by itself change rule status, evaluator prompts, or compiler behavior. See docs/pivot-2026-04-17-characterization.md."
+  },
+  "required": [
+    "rule_id",
+    "status",
+    "scope_claim",
+    "hypothesis",
+    "intervention",
+    "evidence_slices"
+  ],
+  "fields": {
+    "rule_id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "enum",
+      "values": [
+        "candidate",
+        "provisional",
+        "active",
+        "core"
+      ]
+    },
+    "scope_claim": {
+      "type": "enum",
+      "values": [
+        "universal",
+        "family_specific",
+        "model_specific"
+      ]
+    },
+    "hypothesis": {
+      "type": "string"
+    },
+    "intervention": {
+      "type": "object",
+      "required": [
+        "rule_type",
+        "expected_upside"
+      ],
+      "properties": {
+        "rule_type": {
+          "type": "enum",
+          "values": [
+            "clarification",
+            "structure",
+            "audience_grounding",
+            "obligation",
+            "suppression",
+            "preservation",
+            "model_adaptation"
+          ]
+        },
+        "expected_upside": {
+          "type": "string"
+        },
+        "expected_downside": {
+          "type": "string"
+        }
+      }
+    },
+    "evidence_slices": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "lane",
+          "prompt_family",
+          "model_family",
+          "experiment_type",
+          "human_signal"
+        ],
+        "properties": {
+          "lane": {
+            "type": "enum",
+            "values": [
+              "creative",
+              "business",
+              "hybrid"
+            ]
+          },
+          "prompt_family": {
+            "type": "string"
+          },
+          "model_family": {
+            "type": "string"
+          },
+          "panel_version": {
+            "type": "string",
+            "description": "Evaluator-panel version used when producing evaluator_signal, for example muse_athena_apollo_v0_collapsed."
+          },
+          "experiment_type": {
+            "type": "enum",
+            "values": [
+              "raw_vs_compiled",
+              "rule_on_vs_off",
+              "variant_a_vs_b",
+              "cross_model_replication"
+            ]
+          },
+          "packet_ids": {
+            "type": "array",
+            "items": "string"
+          },
+          "experiment_ids": {
+            "type": "array",
+            "items": "integer"
+          },
+          "human_signal": {
+            "type": "enum",
+            "values": [
+              "helped",
+              "hurt",
+              "mixed",
+              "unreviewed"
+            ]
+          },
+          "human_signal_attribution_method": {
+            "type": "enum",
+            "values": [
+              "uniform",
+              "per_rule",
+              "primary_only",
+              "none"
+            ],
+            "description": "How a human packet verdict was distributed across one or more rule evidence slices."
+          },
+          "evaluator_signal": {
+            "type": "enum",
+            "values": [
+              "helped",
+              "hurt",
+              "mixed",
+              "unreviewed"
+            ]
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "promotion_readiness": {
+      "type": "object",
+      "properties": {
+        "cross_family_support": {
+          "type": "boolean"
+        },
+        "cross_model_support": {
+          "type": "boolean"
+        },
+        "human_aligned": {
+          "type": "boolean"
+        },
+        "known_failure_scopes": {
+          "type": "array",
+          "items": "string"
+        }
+      }
+    }
+  }
+}

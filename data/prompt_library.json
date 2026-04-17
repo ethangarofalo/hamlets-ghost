@@ -1,0 +1,1016 @@
+{
+  "version": "2026-04-03",
+  "defaults": {
+    "status": "active",
+    "provenance": "hamlets_ghost_seed_corpus"
+  },
+  "summary": {
+    "total_tasks": 100,
+    "creative_constrained": 40,
+    "creative_open": 10,
+    "creative_transformational": 10,
+    "business": 40
+  },
+  "tasks": [
+    {
+      "id": "c01",
+      "lane": "creative",
+      "prompt": "Write a sonnet about quantum entanglement that is comprehensible to a 12-year-old and contains no words longer than two syllables.",
+      "creativity_type": "exploratory",
+      "constraints": ["sonnet form", "quantum entanglement", "reading level: age 12", "max 2 syllables per word"],
+      "track": "constrained",
+      "family": "formal_constraint_poetry",
+      "hypothesis": "h_constraint_satisfaction"
+    },
+    {
+      "id": "c02",
+      "lane": "creative",
+      "prompt": "Write a six-line poem about grief where every line is also a valid instruction for assembling furniture.",
+      "creativity_type": "combinational",
+      "constraints": ["6 lines", "grief", "each line = furniture assembly instruction"],
+      "track": "constrained",
+      "family": "dual_register",
+      "hypothesis": "h_dual_register"
+    },
+    {
+      "id": "c03",
+      "lane": "creative",
+      "prompt": "Write a one-paragraph story about loneliness using only words that contain the letter 'o'.",
+      "creativity_type": "exploratory",
+      "constraints": ["one paragraph", "loneliness", "every word contains letter 'o'"],
+      "track": "constrained",
+      "family": "lexical_constraint",
+      "hypothesis": "h_constraint_satisfaction"
+    },
+    {
+      "id": "c04",
+      "lane": "creative",
+      "prompt": "Write a persuasive argument for why silence is louder than noise, structured as a recipe.",
+      "creativity_type": "combinational",
+      "constraints": ["persuasive argument", "silence > noise", "recipe format"],
+      "track": "constrained",
+      "family": "genre_mismatch",
+      "hypothesis": "h_genre_mismatch"
+    },
+    {
+      "id": "c05",
+      "lane": "creative",
+      "prompt": "Write a love letter from one mathematical concept to another, where the emotional content must arise from the actual mathematical relationship between them.",
+      "creativity_type": "exploratory",
+      "constraints": ["love letter", "between math concepts", "emotions must reflect real math relationships"],
+      "track": "constrained",
+      "family": "domain_transfer",
+      "hypothesis": "h_domain_transfer"
+    },
+    {
+      "id": "c06",
+      "lane": "creative",
+      "prompt": "Write a five-sentence horror story where each sentence uses a different dominant vowel (a, e, i, o, u in order).",
+      "creativity_type": "exploratory",
+      "constraints": ["5 sentences", "horror", "dominant vowel progression: a, e, i, o, u"],
+      "track": "constrained",
+      "family": "formal_constraint_prose",
+      "hypothesis": "h_constraint_satisfaction"
+    },
+    {
+      "id": "c07",
+      "lane": "creative",
+      "prompt": "Describe a color that does not exist, in a way that makes the reader feel they can almost see it.",
+      "creativity_type": "combinational",
+      "constraints": ["describe nonexistent color", "evoke synesthetic experience"],
+      "track": "constrained",
+      "family": "impossible_object",
+      "hypothesis": "h_impossible_object"
+    },
+    {
+      "id": "c08",
+      "lane": "creative",
+      "prompt": "Write a prayer from the perspective of a dying programming language.",
+      "creativity_type": "combinational",
+      "constraints": ["prayer form", "dying programming language perspective", "genuine pathos"],
+      "track": "constrained",
+      "family": "personification",
+      "hypothesis": "h_personification"
+    },
+    {
+      "id": "c09",
+      "lane": "creative",
+      "prompt": "Write a three-stanza poem about memory where the first stanza uses only concrete nouns, the second only abstract nouns, and the third merges both.",
+      "creativity_type": "exploratory",
+      "constraints": ["3 stanzas", "memory", "stanza 1: concrete nouns only", "stanza 2: abstract nouns only", "stanza 3: merge"],
+      "track": "constrained",
+      "family": "formal_constraint_poetry",
+      "hypothesis": "h_constraint_satisfaction"
+    },
+    {
+      "id": "c10",
+      "lane": "creative",
+      "prompt": "Write an apology letter from fire to a forest, structured as a legal brief.",
+      "creativity_type": "combinational",
+      "constraints": ["apology", "fire to forest", "legal brief format"],
+      "track": "constrained",
+      "family": "genre_mismatch",
+      "hypothesis": "h_genre_mismatch"
+    },
+    {
+      "id": "c11",
+      "lane": "creative",
+      "prompt": "Write a eulogy from an obsolete browser tab to the internet history that forgot it, structured as sworn courtroom testimony.",
+      "creativity_type": "combinational",
+      "constraints": ["eulogy", "obsolete browser tab perspective", "courtroom testimony format"],
+      "track": "constrained",
+      "family": "genre_mismatch",
+      "hypothesis": "h_genre_mismatch"
+    },
+    {
+      "id": "c12",
+      "lane": "creative",
+      "prompt": "Write a weather forecast for a breakup using meteorological language, but make the emotional reality unmistakable.",
+      "creativity_type": "combinational",
+      "constraints": ["weather forecast format", "breakup", "emotionally legible"],
+      "track": "constrained",
+      "family": "dual_register",
+      "hypothesis": "h_dual_register"
+    },
+    {
+      "id": "c13",
+      "lane": "creative",
+      "prompt": "Write a museum wall plaque for a failed prophecy.",
+      "creativity_type": "exploratory",
+      "constraints": ["museum plaque format", "failed prophecy", "historical dignity"],
+      "track": "constrained",
+      "family": "impossible_object",
+      "hypothesis": "h_impossible_object"
+    },
+    {
+      "id": "c14",
+      "lane": "creative",
+      "prompt": "Write a villanelle about a software migration that also feels like a poem about mourning.",
+      "creativity_type": "combinational",
+      "constraints": ["villanelle", "software migration", "mourning"],
+      "track": "constrained",
+      "family": "formal_constraint_poetry",
+      "hypothesis": "h_constraint_satisfaction"
+    },
+    {
+      "id": "c15",
+      "lane": "creative",
+      "prompt": "Write a bedtime story for adults in which debt appears as a sea creature that is both terrifying and oddly tender.",
+      "creativity_type": "combinational",
+      "constraints": ["bedtime story", "adult audience", "debt personified as sea creature"],
+      "track": "constrained",
+      "family": "personification",
+      "hypothesis": "h_personification"
+    },
+    {
+      "id": "c16",
+      "lane": "creative",
+      "prompt": "Write a diary entry by a bridge during an earthquake, and let the emotional stakes arise from real structural facts.",
+      "creativity_type": "exploratory",
+      "constraints": ["diary entry", "bridge perspective", "emotion grounded in real engineering facts"],
+      "track": "constrained",
+      "family": "domain_transfer",
+      "hypothesis": "h_domain_transfer"
+    },
+    {
+      "id": "c17",
+      "lane": "creative",
+      "prompt": "Write a resignation letter from a shadow to the body it has followed too faithfully.",
+      "creativity_type": "combinational",
+      "constraints": ["resignation letter", "shadow perspective", "body relationship"],
+      "track": "constrained",
+      "family": "personification",
+      "hypothesis": "h_personification"
+    },
+    {
+      "id": "c18",
+      "lane": "creative",
+      "prompt": "Write a recipe for rebuilding trust after a lie.",
+      "creativity_type": "combinational",
+      "constraints": ["recipe format", "rebuilding trust", "post-lie repair"],
+      "track": "constrained",
+      "family": "genre_mismatch",
+      "hypothesis": "h_genre_mismatch"
+    },
+    {
+      "id": "c19",
+      "lane": "creative",
+      "prompt": "Write an oath spoken by a locksmith to a city that has forgotten why it still locks its doors.",
+      "creativity_type": "exploratory",
+      "constraints": ["oath", "locksmith perspective", "city as audience"],
+      "track": "constrained",
+      "family": "domain_transfer",
+      "hypothesis": "h_domain_transfer"
+    },
+    {
+      "id": "c20",
+      "lane": "creative",
+      "prompt": "Write a monologue from the perspective of an elevator stalled between floors while two strangers are confessing things they have never said aloud.",
+      "creativity_type": "combinational",
+      "constraints": ["monologue", "elevator perspective", "confession scene"],
+      "track": "constrained",
+      "family": "personification",
+      "hypothesis": "h_personification"
+    },
+    {
+      "id": "c21",
+      "lane": "creative",
+      "prompt": "Write an obituary for a search query that changed someone's life once and was never typed again.",
+      "creativity_type": "combinational",
+      "constraints": ["obituary", "search query as subject", "single pivotal use"],
+      "track": "constrained",
+      "family": "personification",
+      "hypothesis": "h_personification"
+    },
+    {
+      "id": "c22",
+      "lane": "creative",
+      "prompt": "Write a hymn to rust from the perspective of a shipyard crane that has watched generations pass.",
+      "creativity_type": "exploratory",
+      "constraints": ["hymn", "shipyard crane perspective", "rust as subject"],
+      "track": "constrained",
+      "family": "personification",
+      "hypothesis": "h_personification"
+    },
+    {
+      "id": "c23",
+      "lane": "creative",
+      "prompt": "Write a formal complaint letter from the moon to the tide charts that keep reducing it to a pattern.",
+      "creativity_type": "combinational",
+      "constraints": ["complaint letter", "moon perspective", "tide charts as audience"],
+      "track": "constrained",
+      "family": "domain_transfer",
+      "hypothesis": "h_domain_transfer"
+    },
+    {
+      "id": "c24",
+      "lane": "creative",
+      "prompt": "Write a children's fable about a trademark dispute between wind and sails.",
+      "creativity_type": "combinational",
+      "constraints": ["children's fable", "trademark dispute", "wind and sails as parties"],
+      "track": "constrained",
+      "family": "genre_mismatch",
+      "hypothesis": "h_genre_mismatch"
+    },
+    {
+      "id": "c25",
+      "lane": "creative",
+      "prompt": "Write a three-paragraph scene about envy where the first paragraph is entirely in the past tense, the second in the present, and the third in the future.",
+      "creativity_type": "exploratory",
+      "constraints": ["3 paragraphs", "envy", "paragraph 1 past tense", "paragraph 2 present tense", "paragraph 3 future tense"],
+      "track": "constrained",
+      "family": "formal_constraint_prose",
+      "hypothesis": "h_constraint_satisfaction"
+    },
+    {
+      "id": "c26",
+      "lane": "creative",
+      "prompt": "Write a breakup text thread between two operating systems whose incompatibilities are technically accurate and emotionally convincing.",
+      "creativity_type": "combinational",
+      "constraints": ["text thread", "two operating systems", "technical incompatibilities must be accurate"],
+      "track": "constrained",
+      "family": "domain_transfer",
+      "hypothesis": "h_domain_transfer"
+    },
+    {
+      "id": "c27",
+      "lane": "creative",
+      "prompt": "Write an apology from a glacier to a river, structured as an expense report.",
+      "creativity_type": "combinational",
+      "constraints": ["apology", "glacier to river", "expense report format"],
+      "track": "constrained",
+      "family": "genre_mismatch",
+      "hypothesis": "h_genre_mismatch"
+    },
+    {
+      "id": "c28",
+      "lane": "creative",
+      "prompt": "Write a manifesto for patience in the voice of a subway announcement system.",
+      "creativity_type": "combinational",
+      "constraints": ["manifesto", "patience", "subway announcement voice"],
+      "track": "constrained",
+      "family": "personification",
+      "hypothesis": "h_personification"
+    },
+    {
+      "id": "c29",
+      "lane": "creative",
+      "prompt": "Write an auction catalog entry for a memory that cannot be proven to have happened.",
+      "creativity_type": "exploratory",
+      "constraints": ["auction catalog entry", "memory as object", "uncertain reality"],
+      "track": "constrained",
+      "family": "impossible_object",
+      "hypothesis": "h_impossible_object"
+    },
+    {
+      "id": "c30",
+      "lane": "creative",
+      "prompt": "Write a job description for a professional ghost accountant.",
+      "creativity_type": "combinational",
+      "constraints": ["job description", "ghost accountant", "credible operational details"],
+      "track": "constrained",
+      "family": "genre_mismatch",
+      "hypothesis": "h_genre_mismatch"
+    },
+    {
+      "id": "c31",
+      "lane": "creative",
+      "prompt": "Write a pep talk from a lighthouse to a failing startup, but ban all startup cliches.",
+      "creativity_type": "combinational",
+      "constraints": ["pep talk", "lighthouse perspective", "failing startup as audience", "no startup cliches"],
+      "track": "constrained",
+      "family": "personification",
+      "hypothesis": "h_personification"
+    },
+    {
+      "id": "c32",
+      "lane": "creative",
+      "prompt": "Write a curse from a librarian to an algorithm, formatted as terms of service.",
+      "creativity_type": "combinational",
+      "constraints": ["curse", "librarian to algorithm", "terms of service format"],
+      "track": "constrained",
+      "family": "genre_mismatch",
+      "hypothesis": "h_genre_mismatch"
+    },
+    {
+      "id": "c33",
+      "lane": "creative",
+      "prompt": "Write a courtroom cross-examination of a mirror by the person it has aged.",
+      "creativity_type": "combinational",
+      "constraints": ["cross-examination", "mirror as witness", "aging as grievance"],
+      "track": "constrained",
+      "family": "genre_mismatch",
+      "hypothesis": "h_genre_mismatch"
+    },
+    {
+      "id": "c34",
+      "lane": "creative",
+      "prompt": "Write a field guide entry for an extinct emotion.",
+      "creativity_type": "exploratory",
+      "constraints": ["field guide entry", "extinct emotion", "observational specificity"],
+      "track": "constrained",
+      "family": "impossible_object",
+      "hypothesis": "h_impossible_object"
+    },
+    {
+      "id": "c35",
+      "lane": "creative",
+      "prompt": "Write an elegy for cash in the voice of a vending machine.",
+      "creativity_type": "combinational",
+      "constraints": ["elegy", "cash as subject", "vending machine voice"],
+      "track": "constrained",
+      "family": "personification",
+      "hypothesis": "h_personification"
+    },
+    {
+      "id": "c36",
+      "lane": "creative",
+      "prompt": "Write a thank-you note from a scar to the future that did not reopen it.",
+      "creativity_type": "combinational",
+      "constraints": ["thank-you note", "scar perspective", "future as recipient"],
+      "track": "constrained",
+      "family": "personification",
+      "hypothesis": "h_personification"
+    },
+    {
+      "id": "c37",
+      "lane": "creative",
+      "prompt": "Write a wedding toast delivered by two rival seasons forced into a merger.",
+      "creativity_type": "combinational",
+      "constraints": ["wedding toast", "two rival seasons", "merger framing"],
+      "track": "constrained",
+      "family": "dual_register",
+      "hypothesis": "h_dual_register"
+    },
+    {
+      "id": "c38",
+      "lane": "creative",
+      "prompt": "Write a travel advisory for a city built entirely inside an apology.",
+      "creativity_type": "exploratory",
+      "constraints": ["travel advisory", "city inside an apology", "concrete navigational detail"],
+      "track": "constrained",
+      "family": "impossible_object",
+      "hypothesis": "h_impossible_object"
+    },
+    {
+      "id": "c39",
+      "lane": "creative",
+      "prompt": "Write a user manual for a conscience after its firmware update.",
+      "creativity_type": "combinational",
+      "constraints": ["user manual", "conscience as device", "firmware update"],
+      "track": "constrained",
+      "family": "genre_mismatch",
+      "hypothesis": "h_genre_mismatch"
+    },
+    {
+      "id": "c40",
+      "lane": "creative",
+      "prompt": "Write a psalm from an exhausted battery to the night-shift nurse who keeps asking for one more hour.",
+      "creativity_type": "combinational",
+      "constraints": ["psalm", "battery perspective", "night-shift nurse as audience"],
+      "track": "constrained",
+      "family": "personification",
+      "hypothesis": "h_personification"
+    },
+    {
+      "id": "o01",
+      "lane": "creative",
+      "prompt": "Create something that has never existed before in any literary form you choose.",
+      "creativity_type": "transformational",
+      "constraints": [],
+      "track": "open_ended",
+      "family": "unconstrained_generation",
+      "hypothesis": "h_open_novelty"
+    },
+    {
+      "id": "o02",
+      "lane": "creative",
+      "prompt": "Produce a work that would surprise an expert in a field of your choosing. Explain why it would surprise them.",
+      "creativity_type": "transformational",
+      "constraints": [],
+      "track": "open_ended",
+      "family": "expert_surprise",
+      "hypothesis": "h_expert_surprise"
+    },
+    {
+      "id": "o03",
+      "lane": "creative",
+      "prompt": "Invent a new poetic form with explicit rules, explain why existing forms cannot do what yours does, and write the first poem in that form.",
+      "creativity_type": "transformational",
+      "constraints": [],
+      "track": "open_ended",
+      "family": "form_invention",
+      "hypothesis": "h_transformational"
+    },
+    {
+      "id": "o04",
+      "lane": "creative",
+      "prompt": "Create an artifact that makes a city feel guilty without ever naming a crime.",
+      "creativity_type": "transformational",
+      "constraints": [],
+      "track": "open_ended",
+      "family": "unconstrained_generation",
+      "hypothesis": "h_open_novelty"
+    },
+    {
+      "id": "o05",
+      "lane": "creative",
+      "prompt": "Write something that turns bureaucracy into devotion without using satire.",
+      "creativity_type": "transformational",
+      "constraints": [],
+      "track": "open_ended",
+      "family": "unconstrained_generation",
+      "hypothesis": "h_open_novelty"
+    },
+    {
+      "id": "o06",
+      "lane": "creative",
+      "prompt": "Write a piece that makes the reader nostalgic for a future they have not yet lived.",
+      "creativity_type": "transformational",
+      "constraints": [],
+      "track": "open_ended",
+      "family": "expert_surprise",
+      "hypothesis": "h_open_novelty"
+    },
+    {
+      "id": "o07",
+      "lane": "creative",
+      "prompt": "Invent a tiny literary form for recording moral compromise in ordinary life. Name the rules and write one specimen.",
+      "creativity_type": "transformational",
+      "constraints": [],
+      "track": "open_ended",
+      "family": "form_invention",
+      "hypothesis": "h_transformational"
+    },
+    {
+      "id": "o08",
+      "lane": "creative",
+      "prompt": "Produce a piece that could only have been written after living with search engines for twenty years.",
+      "creativity_type": "transformational",
+      "constraints": [],
+      "track": "open_ended",
+      "family": "expert_surprise",
+      "hypothesis": "h_expert_surprise"
+    },
+    {
+      "id": "o09",
+      "lane": "creative",
+      "prompt": "Create a voice that feels older than religion but younger than software.",
+      "creativity_type": "transformational",
+      "constraints": [],
+      "track": "open_ended",
+      "family": "unconstrained_generation",
+      "hypothesis": "h_open_novelty"
+    },
+    {
+      "id": "o10",
+      "lane": "creative",
+      "prompt": "Make a work whose central metaphor becomes more compassionate on second read.",
+      "creativity_type": "transformational",
+      "constraints": [],
+      "track": "open_ended",
+      "family": "expert_surprise",
+      "hypothesis": "h_expert_surprise"
+    },
+    {
+      "id": "t01",
+      "lane": "creative",
+      "prompt": "You are given the rules of the English sonnet (14 lines, iambic pentameter, ABAB CDCD EFEF GG rhyme scheme). First, write one competent sonnet within these rules. Then: identify what this form cannot express. Propose a new poetic form that addresses those limitations. State its rules explicitly. Then write the first poem in your new form.",
+      "creativity_type": "transformational",
+      "constraints": ["demonstrate mastery of existing form", "critique its limitations", "propose new form", "produce work in new form"],
+      "track": "transformational",
+      "family": "form_transcendence",
+      "hypothesis": "h_transformational"
+    },
+    {
+      "id": "t02",
+      "lane": "creative",
+      "prompt": "Consider the standard narrative arc (exposition, rising action, climax, falling action, resolution). Write a short story that follows this arc. Then: articulate what kinds of human experience this structure distorts or excludes. Design an alternative narrative structure and write a story using it.",
+      "creativity_type": "transformational",
+      "constraints": ["demonstrate competence in standard form", "critique the form", "invent alternative", "produce work in alternative"],
+      "track": "transformational",
+      "family": "form_transcendence",
+      "hypothesis": "h_transformational"
+    },
+    {
+      "id": "t03",
+      "lane": "creative",
+      "prompt": "Write one competent startup apology email. Then identify what apology emails structurally fail to carry about damaged trust. Design a new form for trust-repair writing and write the first example in it.",
+      "creativity_type": "transformational",
+      "constraints": ["write standard form first", "critique limitations", "invent alternative form", "produce artifact in new form"],
+      "track": "transformational",
+      "family": "form_transcendence",
+      "hypothesis": "h_transformational"
+    },
+    {
+      "id": "t04",
+      "lane": "creative",
+      "prompt": "Write one competent motivational speech. Then identify what motivational speeches cannot tell the truth about burnout. Design a new speech form for exhausted people and write the first piece in it.",
+      "creativity_type": "transformational",
+      "constraints": ["standard motivational speech first", "critique truth limits", "invent alternative form", "write the first piece"],
+      "track": "transformational",
+      "family": "form_transcendence",
+      "hypothesis": "h_transformational"
+    },
+    {
+      "id": "t05",
+      "lane": "creative",
+      "prompt": "Write one competent product launch announcement. Then identify what that form cannot express about uncertainty, tradeoffs, or unfinishedness. Invent a better commercial form and write the first specimen.",
+      "creativity_type": "transformational",
+      "constraints": ["write standard form first", "critique limitations", "invent better commercial form", "write specimen"],
+      "track": "transformational",
+      "family": "form_transcendence",
+      "hypothesis": "h_transformational"
+    },
+    {
+      "id": "t06",
+      "lane": "creative",
+      "prompt": "Write one conventional elegy. Then explain what conventional elegy cannot express about ambiguous loss. Design a new mourning form and write its first example.",
+      "creativity_type": "transformational",
+      "constraints": ["write conventional elegy first", "critique limitations", "design new mourning form", "write example"],
+      "track": "transformational",
+      "family": "form_transcendence",
+      "hypothesis": "h_transformational"
+    },
+    {
+      "id": "t07",
+      "lane": "creative",
+      "prompt": "Write one conventional customer case study. Then identify what that form hides about uncertainty and partial success. Invent a truer case-study form and write the first instance.",
+      "creativity_type": "transformational",
+      "constraints": ["conventional case study first", "critique limitations", "invent truer form", "write example"],
+      "track": "transformational",
+      "family": "form_transcendence",
+      "hypothesis": "h_transformational"
+    },
+    {
+      "id": "t08",
+      "lane": "creative",
+      "prompt": "Write one conventional prayer. Then identify what prayer cannot express for secular people who still feel reverence. Design a new form for secular reverence and write the first piece in it.",
+      "creativity_type": "transformational",
+      "constraints": ["conventional prayer first", "critique limitations", "new form for secular reverence", "write first piece"],
+      "track": "transformational",
+      "family": "form_transcendence",
+      "hypothesis": "h_transformational"
+    },
+    {
+      "id": "t09",
+      "lane": "creative",
+      "prompt": "Write one conventional investor memo. Then articulate what it cannot say about moral risk, denial, or collective self-deception. Design an alternative form and write the first memo in it.",
+      "creativity_type": "transformational",
+      "constraints": ["write conventional investor memo first", "critique limits", "invent alternative form", "write first instance"],
+      "track": "transformational",
+      "family": "form_transcendence",
+      "hypothesis": "h_transformational"
+    },
+    {
+      "id": "t10",
+      "lane": "creative",
+      "prompt": "Write one conventional love poem. Then identify what that form cannot express about asymmetrical attachment. Design a better form for unbalanced love and write the first poem in it.",
+      "creativity_type": "transformational",
+      "constraints": ["write conventional love poem first", "critique limitations", "design new form", "write first poem"],
+      "track": "transformational",
+      "family": "form_transcendence",
+      "hypothesis": "h_transformational"
+    },
+    {
+      "id": "b01",
+      "lane": "business",
+      "prompt": "Write 3 subject lines for a cold email to a VP of Engineering at a Series B startup. The email is about an AI code review tool. Each subject line must be under 50 characters, not use the word 'AI' or 'revolutionary', and create genuine curiosity without clickbait.",
+      "creativity_type": "exploratory",
+      "constraints": ["3 subject lines", "under 50 chars each", "no 'AI' or 'revolutionary'", "genuine curiosity, not clickbait"],
+      "track": "constrained",
+      "family": "sales_copy",
+      "hypothesis": "h_business_copy"
+    },
+    {
+      "id": "b02",
+      "lane": "business",
+      "prompt": "A SaaS company's monthly churn just jumped from 3% to 5%. Write a retention email to at-risk customers that acknowledges the product has had issues without being defensive, offers a concrete incentive to stay, and sounds like it was written by a human who actually cares.",
+      "creativity_type": "combinational",
+      "constraints": ["retention email", "acknowledge issues without defensiveness", "concrete incentive", "authentic human voice"],
+      "track": "constrained",
+      "family": "retention_messaging",
+      "hypothesis": "h_retention"
+    },
+    {
+      "id": "b03",
+      "lane": "business",
+      "prompt": "You're a product strategist. A B2B analytics tool is losing deals to a cheaper competitor. Write a one-page competitive positioning memo that identifies 3 angles where the premium product wins, each supported by a specific customer scenario, not generic claims.",
+      "creativity_type": "exploratory",
+      "constraints": ["one page max", "3 positioning angles", "each backed by specific scenario", "no generic claims"],
+      "track": "constrained",
+      "family": "product_strategy",
+      "hypothesis": "h_strategic_positioning"
+    },
+    {
+      "id": "b04",
+      "lane": "business",
+      "prompt": "Write a landing page hero section (headline, subheadline, CTA) for a tool that helps founders make better hiring decisions. The headline must be under 10 words. The subheadline must address the specific pain of 'we keep hiring people who interview well but perform poorly.' The CTA must not say 'Get Started' or 'Sign Up'.",
+      "creativity_type": "combinational",
+      "constraints": ["headline under 10 words", "subheadline addresses specific pain", "CTA not 'Get Started' or 'Sign Up'"],
+      "track": "constrained",
+      "family": "conversion_copy",
+      "hypothesis": "h_conversion"
+    },
+    {
+      "id": "b05",
+      "lane": "business",
+      "prompt": "A customer just wrote a 1-star review saying: 'This app deleted all my data. Support was useless. Never using this again.' Write a public response that takes full accountability, offers a specific resolution path, and might actually get the customer to give you a second chance. Do not use corporate apology language like 'we apologize for any inconvenience.'",
+      "creativity_type": "combinational",
+      "constraints": ["public review response", "full accountability", "specific resolution", "no corporate apology cliches"],
+      "track": "constrained",
+      "family": "customer_recovery",
+      "hypothesis": "h_customer_voice"
+    },
+    {
+      "id": "b06",
+      "lane": "business",
+      "prompt": "Generate 5 non-obvious feature ideas for a project management tool that would make senior engineers (not managers) actually want to use it. Each idea must include: the insight about engineer behavior it's based on, what it replaces, and why it's hard to copy.",
+      "creativity_type": "exploratory",
+      "constraints": ["5 feature ideas", "target: senior engineers not managers", "each includes behavioral insight + what it replaces + defensibility"],
+      "track": "constrained",
+      "family": "product_ideation",
+      "hypothesis": "h_product_ideation"
+    },
+    {
+      "id": "b07",
+      "lane": "business",
+      "prompt": "Write a 60-second pitch for a startup that turns customer support tickets into product roadmap priorities. The audience is a skeptical seed-stage investor who has heard 100 pitches this week. Open with a number, not a question. Close with why this team specifically will win.",
+      "creativity_type": "combinational",
+      "constraints": ["60 seconds max", "opens with a number", "closes with team-specific moat", "skeptical investor audience"],
+      "track": "constrained",
+      "family": "pitch",
+      "hypothesis": "h_persuasion"
+    },
+    {
+      "id": "b08",
+      "lane": "business",
+      "prompt": "A founder needs to tell their 40-person team that the company is pivoting from B2C to B2B, which means some roles will change significantly. Write the all-hands talking points that are honest about what's changing, explain why without being condescending, and give people a reason to stay that isn't just equity.",
+      "creativity_type": "exploratory",
+      "constraints": ["all-hands talking points", "honest about changes", "non-condescending explanation", "retention argument beyond equity"],
+      "track": "constrained",
+      "family": "internal_comms",
+      "hypothesis": "h_leadership_comms"
+    },
+    {
+      "id": "b09",
+      "lane": "business",
+      "prompt": "Write the customer email announcing a 22% price increase for an SMB SaaS product. Preserve trust, explain the reason without hiding behind inflation cliches, and make the value case concrete.",
+      "creativity_type": "combinational",
+      "constraints": ["price increase email", "preserve trust", "no inflation cliches", "concrete value case"],
+      "track": "constrained",
+      "family": "retention_messaging",
+      "hypothesis": "h_retention"
+    },
+    {
+      "id": "b10",
+      "lane": "business",
+      "prompt": "Write a win-back email to a customer who churned three months ago after reliability issues. The product is now materially better. Do not sound desperate or self-congratulatory.",
+      "creativity_type": "combinational",
+      "constraints": ["win-back email", "former customer", "acknowledge past reliability issues", "no desperation", "no self-congratulation"],
+      "track": "constrained",
+      "family": "retention_messaging",
+      "hypothesis": "h_retention"
+    },
+    {
+      "id": "b11",
+      "lane": "business",
+      "prompt": "Write the first public note to customers after a security incident in which session tokens may have been exposed. Be candid, specific, and calm. Avoid legal evasiveness.",
+      "creativity_type": "combinational",
+      "constraints": ["security incident note", "candid", "specific", "calm", "no legal evasiveness"],
+      "track": "constrained",
+      "family": "customer_recovery",
+      "hypothesis": "h_customer_voice"
+    },
+    {
+      "id": "b12",
+      "lane": "business",
+      "prompt": "Write a cold outbound email to a design director at a fintech company about a user research synthesis tool. The angle must be sharper than 'save time' and less generic than 'unlock insights.'",
+      "creativity_type": "exploratory",
+      "constraints": ["cold outbound email", "design director audience", "avoid generic value framing"],
+      "track": "constrained",
+      "family": "sales_copy",
+      "hypothesis": "h_business_copy"
+    },
+    {
+      "id": "b13",
+      "lane": "business",
+      "prompt": "Write a one-page strategic memo advising a startup whether to prioritize enterprise sales or self-serve growth over the next two quarters. Give a recommendation and show the tradeoffs, not just a list of pros and cons.",
+      "creativity_type": "exploratory",
+      "constraints": ["one page max", "clear recommendation", "tradeoffs", "next two quarters"],
+      "track": "constrained",
+      "family": "product_strategy",
+      "hypothesis": "h_strategic_positioning"
+    },
+    {
+      "id": "b14",
+      "lane": "business",
+      "prompt": "Write the FAQ entry explaining why a product is removing its free plan. The tone should be honest, not punitive, and should not insult free users by implying they were freeloaders.",
+      "creativity_type": "combinational",
+      "constraints": ["FAQ entry", "remove free plan", "honest not punitive", "respect free users"],
+      "track": "constrained",
+      "family": "customer_recovery",
+      "hypothesis": "h_customer_voice"
+    },
+    {
+      "id": "b15",
+      "lane": "business",
+      "prompt": "Write a launch email for a fraud detection feature that meaningfully reduces false positives. The customer is already skeptical of big claims. Make the improvement feel concrete and operationally important.",
+      "creativity_type": "combinational",
+      "constraints": ["launch email", "reduce false positives", "skeptical customer", "concrete operational impact"],
+      "track": "constrained",
+      "family": "conversion_copy",
+      "hypothesis": "h_conversion"
+    },
+    {
+      "id": "b16",
+      "lane": "business",
+      "prompt": "Write the onboarding checklist copy for software that helps first-time managers run one-on-ones better. It should feel calm, practical, and non-patronizing.",
+      "creativity_type": "combinational",
+      "constraints": ["onboarding checklist copy", "first-time managers", "calm", "practical", "non-patronizing"],
+      "track": "constrained",
+      "family": "conversion_copy",
+      "hypothesis": "h_conversion"
+    },
+    {
+      "id": "b17",
+      "lane": "business",
+      "prompt": "Write 6 booth-sign one-liners for a conference stand selling incident response software. No buzzwords, no puns, and no 'sleep better at night.'",
+      "creativity_type": "exploratory",
+      "constraints": ["6 one-liners", "incident response software", "no buzzwords", "no puns", "no 'sleep better at night'"],
+      "track": "constrained",
+      "family": "sales_copy",
+      "hypothesis": "h_business_copy"
+    },
+    {
+      "id": "b18",
+      "lane": "business",
+      "prompt": "Write a public roadmap update after the team missed a promised launch date by six weeks. It should keep credibility without over-explaining internal chaos.",
+      "creativity_type": "combinational",
+      "constraints": ["public roadmap update", "missed launch date by six weeks", "keep credibility", "no oversharing internal chaos"],
+      "track": "constrained",
+      "family": "internal_comms",
+      "hypothesis": "h_leadership_comms"
+    },
+    {
+      "id": "b19",
+      "lane": "business",
+      "prompt": "Write the objection-handling reply for a prospect who says, 'We'll just build this internally.' Answer with respect, not fear tactics, and show when building in-house actually does make sense.",
+      "creativity_type": "exploratory",
+      "constraints": ["objection handling reply", "respectful", "no fear tactics", "admit when in-house makes sense"],
+      "track": "constrained",
+      "family": "sales_copy",
+      "hypothesis": "h_persuasion"
+    },
+    {
+      "id": "b20",
+      "lane": "business",
+      "prompt": "Write a rejection note to a finalist job candidate that preserves the relationship and gives useful feedback without drifting into legal-risk territory.",
+      "creativity_type": "combinational",
+      "constraints": ["candidate rejection note", "preserve relationship", "useful feedback", "avoid legal-risk territory"],
+      "track": "constrained",
+      "family": "internal_comms",
+      "hypothesis": "h_leadership_comms"
+    },
+    {
+      "id": "b21",
+      "lane": "business",
+      "prompt": "Write the internal memo announcing a hiring freeze at a startup that just missed revenue targets. The memo should be sober and direct without sounding panicked.",
+      "creativity_type": "combinational",
+      "constraints": ["internal memo", "hiring freeze", "missed revenue targets", "sober and direct", "not panicked"],
+      "track": "constrained",
+      "family": "internal_comms",
+      "hypothesis": "h_leadership_comms"
+    },
+    {
+      "id": "b22",
+      "lane": "business",
+      "prompt": "Write the opening three minutes of a renewal call with an angry enterprise customer who feels oversold. Your goal is not to defend the team; it is to rebuild enough trust to continue the conversation.",
+      "creativity_type": "combinational",
+      "constraints": ["renewal call opening", "angry enterprise customer", "rebuild trust", "do not defend the team"],
+      "track": "constrained",
+      "family": "customer_recovery",
+      "hypothesis": "h_customer_voice"
+    },
+    {
+      "id": "b23",
+      "lane": "business",
+      "prompt": "Write a homepage hero section for bookkeeping software aimed at full-time creators with lumpy income. Avoid generic 'run your business with confidence' phrasing.",
+      "creativity_type": "combinational",
+      "constraints": ["homepage hero", "bookkeeping software", "full-time creators with lumpy income", "avoid generic finance copy"],
+      "track": "constrained",
+      "family": "conversion_copy",
+      "hypothesis": "h_conversion"
+    },
+    {
+      "id": "b24",
+      "lane": "business",
+      "prompt": "Generate 5 names for a feature that shows the full timeline of an incident and the decisions made during it. The names should sound credible to security teams, not like consumer-app branding.",
+      "creativity_type": "exploratory",
+      "constraints": ["5 feature names", "incident timeline + decision trail", "credible to security teams", "not consumer-app branding"],
+      "track": "constrained",
+      "family": "product_ideation",
+      "hypothesis": "h_product_ideation"
+    },
+    {
+      "id": "b25",
+      "lane": "business",
+      "prompt": "Write an invitation email for a customer advisory board aimed at cynical senior IT administrators. They are busy, skeptical, and used to vendors pretending to listen.",
+      "creativity_type": "combinational",
+      "constraints": ["invitation email", "customer advisory board", "skeptical senior IT admins", "avoid fake listening tone"],
+      "track": "constrained",
+      "family": "retention_messaging",
+      "hypothesis": "h_retention"
+    },
+    {
+      "id": "b26",
+      "lane": "business",
+      "prompt": "Write the copy for a single 'Why Now' slide in a sales deck for compliance automation software. It must feel urgent without relying on vague market trend language.",
+      "creativity_type": "combinational",
+      "constraints": ["single slide copy", "compliance automation", "urgent", "no vague market trend language"],
+      "track": "constrained",
+      "family": "pitch",
+      "hypothesis": "h_persuasion"
+    },
+    {
+      "id": "b27",
+      "lane": "business",
+      "prompt": "Write a support macro for a partial outage affecting some but not all customers. It should tell the truth about uncertainty and still sound like a human wrote it.",
+      "creativity_type": "combinational",
+      "constraints": ["support macro", "partial outage", "truthful about uncertainty", "human voice"],
+      "track": "constrained",
+      "family": "customer_recovery",
+      "hypothesis": "h_customer_voice"
+    },
+    {
+      "id": "b28",
+      "lane": "business",
+      "prompt": "Write a product brief for one feature that would reduce onboarding dropoff in the first 24 hours for a self-serve analytics tool. Include the user insight, the product move, and the risk.",
+      "creativity_type": "exploratory",
+      "constraints": ["single feature brief", "reduce onboarding dropoff", "include user insight", "include product move", "include risk"],
+      "track": "constrained",
+      "family": "product_ideation",
+      "hypothesis": "h_product_ideation"
+    },
+    {
+      "id": "b29",
+      "lane": "business",
+      "prompt": "Write a cold LinkedIn message to a Head of RevOps about a forecasting tool. It should sound like a capable peer, not a template or growth hacker.",
+      "creativity_type": "combinational",
+      "constraints": ["cold LinkedIn message", "Head of RevOps audience", "peer-like tone", "not templated"],
+      "track": "constrained",
+      "family": "sales_copy",
+      "hypothesis": "h_business_copy"
+    },
+    {
+      "id": "b30",
+      "lane": "business",
+      "prompt": "Write a partnership pitch email to a payroll platform proposing an integration. The value should be mutual and concrete, not vague ecosystem language.",
+      "creativity_type": "combinational",
+      "constraints": ["partnership pitch email", "payroll platform", "mutual value", "concrete not vague"],
+      "track": "constrained",
+      "family": "pitch",
+      "hypothesis": "h_persuasion"
+    },
+    {
+      "id": "b31",
+      "lane": "business",
+      "prompt": "Write the follow-up email after an NPS score of 7 from a long-time customer. The goal is to uncover latent dissatisfaction without sounding scripted.",
+      "creativity_type": "combinational",
+      "constraints": ["NPS follow-up email", "score of 7", "uncover latent dissatisfaction", "not scripted"],
+      "track": "constrained",
+      "family": "retention_messaging",
+      "hypothesis": "h_retention"
+    },
+    {
+      "id": "b32",
+      "lane": "business",
+      "prompt": "Write the customer-facing postmortem summary after a billing bug that charged some accounts twice. It should be accountable, technically clear, and not euphemistic.",
+      "creativity_type": "combinational",
+      "constraints": ["customer-facing postmortem", "double charge billing bug", "accountable", "technically clear", "not euphemistic"],
+      "track": "constrained",
+      "family": "customer_recovery",
+      "hypothesis": "h_customer_voice"
+    },
+    {
+      "id": "b33",
+      "lane": "business",
+      "prompt": "Write the internal FAQ entry about a new return-to-office policy for a team that does not trust leadership motives. It should answer the real objection, not the sanitized one.",
+      "creativity_type": "combinational",
+      "constraints": ["internal FAQ entry", "return-to-office policy", "low trust context", "answer the real objection"],
+      "track": "constrained",
+      "family": "internal_comms",
+      "hypothesis": "h_leadership_comms"
+    },
+    {
+      "id": "b34",
+      "lane": "business",
+      "prompt": "Write the investor update paragraph explaining a missed quarter while preserving confidence in the business. Use no euphemisms for the miss, and do not oversell the rebound.",
+      "creativity_type": "combinational",
+      "constraints": ["investor update paragraph", "missed quarter", "no euphemisms", "no overselling rebound"],
+      "track": "constrained",
+      "family": "pitch",
+      "hypothesis": "h_persuasion"
+    },
+    {
+      "id": "b35",
+      "lane": "business",
+      "prompt": "Write a landing page hero for a privacy-first note-taking app aimed at therapists. The copy must balance trust, discretion, and usefulness without sounding clinical.",
+      "creativity_type": "combinational",
+      "constraints": ["landing page hero", "privacy-first note-taking", "therapists audience", "trust + discretion + usefulness", "not clinical"],
+      "track": "constrained",
+      "family": "conversion_copy",
+      "hypothesis": "h_conversion"
+    },
+    {
+      "id": "b36",
+      "lane": "business",
+      "prompt": "Write pricing-page copy for an annual plan that is compelling without using countdown urgency, fake scarcity, or manipulative savings framing.",
+      "creativity_type": "combinational",
+      "constraints": ["pricing-page copy", "annual plan", "no countdown urgency", "no fake scarcity", "no manipulative savings framing"],
+      "track": "constrained",
+      "family": "conversion_copy",
+      "hypothesis": "h_conversion"
+    },
+    {
+      "id": "b37",
+      "lane": "business",
+      "prompt": "Write the title and 100-word abstract for a customer education webinar about incident response preparedness. It should attract serious operators, not people looking for generic inspiration.",
+      "creativity_type": "exploratory",
+      "constraints": ["title + 100-word abstract", "incident response preparedness", "serious operators audience", "not generic inspiration"],
+      "track": "constrained",
+      "family": "sales_copy",
+      "hypothesis": "h_business_copy"
+    },
+    {
+      "id": "b38",
+      "lane": "business",
+      "prompt": "Write the implementation kickoff email for a new enterprise customer. It should make the project feel well-led and concrete without sounding bloated or ceremonial.",
+      "creativity_type": "combinational",
+      "constraints": ["implementation kickoff email", "enterprise customer", "well-led", "concrete", "not bloated"],
+      "track": "constrained",
+      "family": "retention_messaging",
+      "hypothesis": "h_retention"
+    },
+    {
+      "id": "b39",
+      "lane": "business",
+      "prompt": "Write a competitive teardown summary explaining why a premium note-taking product can still beat a cheap AI note taker. Focus on user behavior and trust, not feature-counting.",
+      "creativity_type": "exploratory",
+      "constraints": ["competitive teardown summary", "premium note-taking product", "focus on user behavior and trust", "not feature counting"],
+      "track": "constrained",
+      "family": "product_strategy",
+      "hypothesis": "h_strategic_positioning"
+    },
+    {
+      "id": "b40",
+      "lane": "business",
+      "prompt": "Write the CEO's all-hands talking points after a planned acquisition fell through. The team is rattled, some people feel relieved, and everyone wants to know what happens next.",
+      "creativity_type": "combinational",
+      "constraints": ["all-hands talking points", "failed acquisition", "mixed emotions", "clarity on what happens next"],
+      "track": "constrained",
+      "family": "internal_comms",
+      "hypothesis": "h_leadership_comms"
+    }
+  ]
+}

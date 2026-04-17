@@ -1,0 +1,24 @@
+.DS_Store
+
+# Python caches and virtualenvs
+__pycache__/
+*.py[cod]
+.venv/
+
+# Local secrets
+.env
+.env.save
+
+# Local editor state
+.claude/
+
+# Local runtime state
+creativity_lab.db
+*.db-shm
+*.db-wal
+.recovery/
+
+# Public exhibit packet curation
+wiki/packets/*.md
+!wiki/packets/README.md
+!wiki/packets/evidence_compiler_*.md
