@@ -76,7 +76,7 @@ Statement: evaluator-panel configuration is part of the evidence, and the lab re
 
 Automated judges can agree because they share a taste, because they share a model family, or because the system accidentally gave two roles the same backend. The lab cannot characterize panel behavior unless the panel version is visible. Independence is not an aesthetic preference; it is part of the measurement apparatus.
 
-Implementation: `agents.py` computes `APOLLO_INDEPENDENT` from Apollo's backend/model pair and sets `LAB_JUDGE_PANEL_VERSION` to `muse_athena_apollo_v1_independent` or `muse_athena_apollo_v0_collapsed` (`agents.py:98`, `agents.py:100`). The orchestration policy exposes Apollo's independence flag and panel version (`agents.py:735`, `agents.py:744`). Model descriptions list Muse, Athena, Apollo, and the council as distinct roles with their configured backends and models (`agents.py:721`).
+Implementation: `agents.py` computes `APOLLO_INDEPENDENT` from Apollo's backend/model pair and sets `LAB_JUDGE_PANEL_VERSION` to `muse_athena_apollo_v1_independent` or `muse_athena_apollo_v0_collapsed` (`agents.py:98`, `agents.py:100`). The orchestration policy exposes Apollo's independence flag and panel version (`agents.py:735`, `agents.py:744`). Model descriptions list Muse, Athena, Apollo, and the council as distinct roles with their configured backends and models (`agents.py:721`). Apollo's independent path is explicitly configured through `APOLLO_BACKEND`; when set to `hermes_cli`, Apollo calls `APOLLO_HERMES_BIN` rather than the OpenAI API.
 
 Violation: comparing evidence across panel configurations without recording the panel version, or presenting a collapsed Apollo/Athena configuration as an independent three-judge panel, violates this commitment.
 
