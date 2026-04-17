@@ -99,6 +99,8 @@ characterization: insufficient_data
 
 The rule has zero decisive human reviews. The system therefore refuses to label it `aligned`, `divergent`, `llm_specific`, `human_specific`, or `neutral`. This is the behavior described in `docs/ARCHITECTURE.md`: panel signal alone cannot characterize a rule.
 
+In the dry-run output, `unreviewed` is the stored data value and "decisive human reviews" is the threshold concept. Here they describe the same underlying fact: no human review has yet supplied `helped` or `hurt` for the eligible slices.
+
 ## Resetting The Demo
 
 Re-run the bootstrap with `--force` whenever you want a clean demo database:
