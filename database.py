@@ -10,7 +10,7 @@ import hashlib
 import aiosqlite
 
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "creativity_lab.db")
+DB_PATH = os.getenv("LAB_DB_PATH") or os.path.join(os.path.dirname(__file__), "creativity_lab.db")
 SQLITE_BUSY_TIMEOUT_MS = 5000
 SQLITE_JOURNAL_MODE = "WAL"
 SQLITE_SYNCHRONOUS_MODE = "NORMAL"

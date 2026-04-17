@@ -1,0 +1,63 @@
+{
+  "schema_version": "0.1",
+  "description": "Demo rule-evidence fixture for the public walkthrough. It seeds one watched rule, four compiler-compare packets, three eligible slices, one suppressed dual constraint-fail slice, and zero decisive human reviews.",
+  "rule": {
+    "rule_key": "diagnosis::make_audience_explicit",
+    "title": "Make Audience Explicit",
+    "scope_claim": "family_specific",
+    "status": "candidate",
+    "rule_type": "audience_grounding",
+    "rule_text": "Name the intended audience and the obligation the artifact owes that audience.",
+    "rationale": "Some prompts become stronger when the output makes the audience and situational obligation explicit.",
+    "payload": {
+      "source": "demo_fixture",
+      "pivot": "characterization"
+    }
+  },
+  "slices": [
+    {
+      "packet_id": "evidence_compiler_customer_recovery_001",
+      "lane": "business",
+      "prompt_family": "customer_recovery",
+      "model_family": "",
+      "raw_status": "kept",
+      "compiled_status": "kept",
+      "human_signal": "unreviewed",
+      "evaluator_signal": "helped",
+      "evaluator_margin": 0.22
+    },
+    {
+      "packet_id": "evidence_compiler_internal_comms_002",
+      "lane": "business",
+      "prompt_family": "internal_comms",
+      "model_family": "",
+      "raw_status": "constraint_fail",
+      "compiled_status": "constraint_fail",
+      "human_signal": "unreviewed",
+      "evaluator_signal": "helped",
+      "evaluator_margin": 0.08
+    },
+    {
+      "packet_id": "evidence_compiler_personification_003",
+      "lane": "creative",
+      "prompt_family": "personification",
+      "model_family": "",
+      "raw_status": "kept",
+      "compiled_status": "kept",
+      "human_signal": "unreviewed",
+      "evaluator_signal": "hurt",
+      "evaluator_margin": -0.18
+    },
+    {
+      "packet_id": "evidence_compiler_sales_copy_004",
+      "lane": "business",
+      "prompt_family": "sales_copy",
+      "model_family": "",
+      "raw_status": "kept",
+      "compiled_status": "kept",
+      "human_signal": "unreviewed",
+      "evaluator_signal": "helped",
+      "evaluator_margin": 0.31
+    }
+  ]
+}
