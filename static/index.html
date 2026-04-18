@@ -1,702 +1,869 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hamlet's Ghost</title>
-    <link rel="stylesheet" href="/static/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hamlet's Ghost</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
-    <div class="container">
-        <!-- ── HEADER BAR: title + state + key metrics ── -->
-        <header class="lab-header">
-            <div class="lab-title">
-                <h1>Hamlet&rsquo;s Ghost</h1>
-                <span class="badge" id="runner-badge">IDLE</span>
-            </div>
-            <div class="lab-metrics">
-                <div class="metric"><span class="metric-val" id="stat-experiments">0</span><span class="metric-label">runs</span></div>
-                <div class="metric"><span class="metric-val" id="stat-best">0.00</span><span class="metric-label">best</span></div>
-                <div class="metric"><span class="metric-val green" id="stat-improvement">--</span><span class="metric-label">trend</span></div>
-                <div class="metric"><span class="metric-val yellow" id="stat-cost">$0.00</span><span class="metric-label">cost</span></div>
-                <div class="metric metric-wide"><span class="metric-val" id="stat-disagreements">0</span><span class="metric-label">to review</span></div>
-            </div>
-            <div class="lab-actions">
-                <button class="btn-refresh subtle" onclick="refresh()">Refresh</button>
-            </div>
-        </header>
+<main class="sheet">
 
-        <div class="workflow-organism">
-        <section class="council-oversight">
-            <div class="council-strip">
-                <div class="council-strip-rail" aria-hidden="true">
-                    <span class="council-strip-node council-strip-node-generate"></span>
-                    <span class="council-strip-node council-strip-node-judge"></span>
-                    <span class="council-strip-node council-strip-node-review"></span>
-                </div>
-                <div
-                    class="council-strip-main"
-                    role="button"
-                    tabindex="0"
-                    onclick="openLatestCouncilSession()"
-                    onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openLatestCouncilSession(); }"
-                >
-                    <div class="council-strip-title-row">
-                        <div class="council-eyebrow">Council</div>
-                        <div class="council-latest-badge" id="council-surface-confidence">--</div>
-                    </div>
-                    <div class="council-surface-status" id="council-surface-status">No council session has been filed yet.</div>
-                    <div class="council-latest-meta" id="council-surface-meta">Waiting for the first supervisory pass.</div>
-                </div>
-                <div class="council-strip-actions">
-                    <button class="btn-refresh primary council-trigger-button" onclick="event.stopPropagation(); triggerCouncil()">Run Council</button>
-                    <button class="btn-refresh" onclick="event.stopPropagation(); openLatestCouncilSession()">Council</button>
-                </div>
-            </div>
-            <div class="council-surface-cache" hidden>
-                <div id="council-surface-strongest">No council session yet.</div>
-                <div id="council-surface-diagnosis">The council has not yet issued a diagnosis refinement.</div>
-                <div id="council-surface-education">The council has not yet proposed a panel-characterization probe.</div>
-                <div id="council-surface-next">Run a council session to synthesize the current workflow.</div>
-                <div id="council-surface-prompt-count">0</div>
-                <div id="council-surface-education-count">0</div>
-                <div id="council-surface-contrast-count">0</div>
-                <div id="council-governance-prompt">No adopted diagnosis probes yet.</div>
-                <div id="council-governance-education">No active panel-characterization probes yet.</div>
-                <div id="council-governance-contrast">No queued contrast sets yet.</div>
-            </div>
-            <div class="rule-proposal-strip" id="rule-proposal-strip">
-                <div class="rule-proposal-head">
-                    <span class="rule-proposal-kicker">Compiler Learning</span>
-                    <span class="rule-proposal-count" id="rule-proposal-count">0 proposals</span>
-                </div>
-                <div class="rule-proposal-body" id="rule-proposal-body">
-                    No rule has accumulated enough evidence yet.
-                </div>
-            </div>
+  <!-- ═══ Masthead ═══════════════════════════════════════════ -->
+  <header class="masthead">
+    <div class="masthead-l">
+      <div class="eyebrow">
+        <span>Hamlet's Ghost</span>
+        <span>Instrument Readout</span>
+        <span id="design-issue-date">2026-04-17</span>
+      </div>
+      <h1><em>Judge Preference Divergence</em> — Current Empirical State</h1>
+      <div class="subtitle">A live readout of rule evidence, disagreement queue, and lab stability. Numbers are reported, not targeted.</div>
+      <div class="epigraph" aria-label="Epigraph">
+        <span class="orn" aria-hidden="true">⚚</span>
+        <span class="line">&ldquo;<em>Before my God, I might not this believe / Without the sensible and true avouch / Of mine own eyes.</em>&rdquo;</span>
+        <span class="cite">&mdash; Horatio, <span class="ital">Hamlet</span> I.i</span>
+      </div>
+    </div>
+    <div class="masthead-r">
+      <div class="runstate idle" id="design-runner-state">
+        <span class="runstate-dot"></span>
+        <span id="design-runner-label">Runner · idle</span>
+      </div>
+      <div>Snapshot <span id="design-snap-clock">—</span><span class="tick-cursor">█</span></div>
+      <div>Schema v. prompt_rule_evidence_v1</div>
+      <div>Last packet <span id="design-last-packet-ago">—</span> ago</div>
+    </div>
+  </header>
+
+  <!-- ═══ Document metadata row ══════════════════════════════ -->
+  <div class="filemeta">
+    <div><span class="k">Instrument</span><span class="v">hamlets-ghost/compiler-learning</span></div>
+    <div><span class="k">Mode</span><span class="v warn" id="design-fm-mode">Dry-run (proposals only)</span></div>
+    <div><span class="k">Auto-promotion</span><span class="v">Disabled by design</span></div>
+    <div><span class="k">Rules tracked</span><span class="v" id="design-fm-rules-tracked">—</span></div>
+    <div><span class="k">Decisive human reviews</span><span class="v alert" id="design-fm-decisive-human">—</span></div>
+    <div><span class="k">Characterized rules</span><span class="v" id="design-fm-characterized">—</span></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       § I · COMPILER LEARNING
+       ═══════════════════════════════════════════════════════ -->
+  <section class="section" id="compiler-learning">
+    <div class="section-hd">
+      <span class="no">§ I</span>
+      <h2>Compiler Learning</h2>
+      <span class="note">The measurement surface this instrument will cite.</span>
+    </div>
+    <p class="section-sub">
+      Each rule in the compiler is evaluated against accumulated paired-generation packets. A proposal is produced only in <em>dry run</em>: the decision — <span class="mono">HOLD</span>, <span class="mono">WATCH</span>, <span class="mono">PROMOTE</span> — is displayed alongside the exact evidence it depends on. No rule is promoted automatically; a human must approve.
+    </p>
+
+    <div class="cl">
+
+      <!-- Report header + stamp -->
+      <div class="cl-hd">
+        <div>
+          <div class="title">§ I.a · Report</div>
+          <div class="claim" id="design-cl-claim">
+            <strong>Loading rule evidence&hellip;</strong>
+          </div>
+          <div class="refline">
+            source <code>scripts/promote_rules.py --dry-run</code>
+            · endpoint <code>/api/rules/promotions</code>
+          </div>
         </div>
+        <div class="cl-stamp dry">
+          <div class="stamp-k">Report Status</div>
+          <div class="stamp-v">DRY RUN</div>
+        </div>
+      </div>
 
-        <!-- ── PIPELINE: Generate → Judge → Review ── -->
+      <!-- Chart-recorder strip -->
+      <div class="trace" aria-label="Compiler-compare packet arrivals, 30-day window">
+        <div class="t-k">
+          <span>Packet arrivals</span>
+          <span class="sub">30-day window</span>
+        </div>
+        <div class="t-plot" id="design-trace-plot">
+          <svg viewBox="0 0 300 44" preserveAspectRatio="none" aria-hidden="true" id="design-trace-svg">
+            <line x1="0" y1="43" x2="300" y2="43" stroke="#5a574e" stroke-width="0.4" opacity="0.4"/>
+            <g id="design-trace-marks" stroke="#1a1915" stroke-width="1"></g>
+            <path d="M0 42 L14 42 L18 41 L26 42 L34 42 L42 42 L58 42 L72 42 L300 42" stroke="#5a574e" stroke-width="0.4" fill="none" opacity="0.5"/>
+          </svg>
+          <div class="needle" aria-hidden="true"></div>
+          <div class="axis-label">t − 30d → now</div>
+        </div>
+        <div class="t-v">
+          <span>n = <span class="since" id="design-trace-n">—</span> packets, last <span class="since" id="design-trace-last">—</span> ago</span>
+          <span class="note">Sparse by design; the instrument is not being driven for volume.</span>
+        </div>
+      </div>
+
+      <!-- Characterization ledger -->
+      <div class="cl-ledger" aria-label="Rule characterization counts">
+        <div class="cell" id="design-ledger-aligned">
+          <div class="lbl">Aligned</div>
+          <div class="num dim">0<span class="of"> / —</span></div>
+          <div class="desc">Panel and human agree the rule helps.</div>
+        </div>
+        <div class="cell" id="design-ledger-llm_specific">
+          <div class="lbl">LLM-specific</div>
+          <div class="num dim">0<span class="of"> / —</span></div>
+          <div class="desc">Panel helps; human does not.</div>
+        </div>
+        <div class="cell flag" id="design-ledger-divergent">
+          <div class="lbl">Divergent</div>
+          <div class="num dim">0<span class="of"> / —</span></div>
+          <div class="desc">Panel and human disagree on direction.</div>
+        </div>
+        <div class="cell" id="design-ledger-human_specific">
+          <div class="lbl">Human-specific</div>
+          <div class="num dim">0<span class="of"> / —</span></div>
+          <div class="desc">Human helps; panel does not.</div>
+        </div>
+        <div class="cell all-zero" id="design-ledger-insufficient_data">
+          <div class="lbl">Insufficient data</div>
+          <div class="num">—<span class="of"> / —</span></div>
+          <div class="desc">Not enough decisive reviews to label.</div>
+        </div>
+      </div>
+
+      <!-- Decision thresholds -->
+      <div class="cl-thresh">
+        <div class="t-k">Decision thresholds</div>
+        <div class="t-v" id="design-cl-thresh-v">
+          <span>characterization_min_human <b>= 5</b></span>
+          <span>support_families_min <b>= 2</b></span>
+          <span>support_packets_min <b>= 6</b></span>
+          <span>promote_human_win_rate <b>≥ 0.60</b></span>
+          <span>suppress dual constraint-fail <b>= true</b></span>
+        </div>
+      </div>
+
+      <!-- Proposals table -->
+      <div class="proposals" role="table" aria-label="Rule promotion proposals">
+        <div class="proposals-head" role="row">
+          <div>Rec.</div>
+          <div>Rule</div>
+          <div>Characterization</div>
+          <div>Panel support</div>
+          <div>Human signal</div>
+          <div>Provenance</div>
+        </div>
+        <div id="design-proposals-body">
+          <div class="q-empty">Loading rule evidence&hellip;</div>
+        </div>
+      </div>
+
+      <!-- Foot -->
+      <div class="cl-foot">
+        <div class="a" id="design-cl-foot-meta">Generated from promote_rules.py · auto-refreshes every 4 s</div>
+        <div class="b">
+          <a href="#" onclick="triggerCouncil(); return false;">Run council</a>
+          &nbsp;·&nbsp;
+          <a href="#" onclick="document.querySelector('.lab-ops-section').setAttribute('open', ''); document.querySelector('.runner-area')?.scrollIntoView({behavior:'smooth'}); return false;">Open lab controls</a>
+        </div>
+      </div>
+    </div>
+
+    <p class="section-sub" style="margin-top:14px;color:var(--ink-3);font-size:13px;" id="design-section-interpretation">
+      <em>Interpretation.</em> The instrument is correctly refusing to call a preference until decisive human reviews exist. This is the expected state for a lab at this stage.
+    </p>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════
+       § II · DISAGREEMENT REVIEW QUEUE
+       ═══════════════════════════════════════════════════════ -->
+  <section class="section" id="queue">
+    <div class="section-hd">
+      <span class="no">§ II</span>
+      <h2>Disagreement Review Queue</h2>
+      <span class="note">Packets where panel and human opinion diverge, or human input is absent.</span>
+    </div>
+    <p class="section-sub">
+      Each row is a paired-generation packet: Genesis and Theron produced independent artifacts for the same prompt, and the evaluator panel scored them. Packets surface here when the margin is narrow, constraint-fail status is ambiguous, or a human rater is explicitly needed.
+    </p>
+
+    <div class="queue">
+      <div class="queue-hd">
+        <div class="title">§ II · Queue</div>
+        <div class="count"><b id="design-queue-count-n">—</b> packets awaiting decisive human review</div>
+        <div class="sort">
+          <span>sort</span>
+          <select id="design-queue-sort">
+            <option>oldest first</option>
+            <option>narrowest margin</option>
+            <option>prompt family</option>
+          </select>
+        </div>
+      </div>
+      <div class="q-list" id="design-queue-list">
+        <div class="q-empty">Loading queue&hellip;</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════
+       § III · LAB STATUS
+       ═══════════════════════════════════════════════════════ -->
+  <section class="section" id="status">
+    <div class="section-hd">
+      <span class="no">§ III</span>
+      <h2>Lab Status</h2>
+      <span class="note">Operating parameters at the moment of snapshot.</span>
+    </div>
+    <p class="section-sub">
+      Instrument parameters and agent configuration, reproduced from <span class="mono">server.py</span> and the current schema. These values are what the rule-promotion report above was computed against.
+    </p>
+
+    <div class="status-grid">
+
+      <!-- § III.a Empirical state -->
+      <div class="panel">
+        <div class="panel-hd"><span>§ III.a · Empirical state</span><span class="badge" id="design-live-badge">live</span></div>
+        <div class="panel-body">
+          <div class="kv">
+            <span class="k">Rules under watch</span>
+            <span class="v" id="design-stat-rules">—</span>
+
+            <span class="k">Compiler-compare packets</span>
+            <span class="v" id="design-stat-packets">—</span>
+
+            <span class="k">Eligible slices</span>
+            <span class="v" id="design-stat-eligible">—</span>
+
+            <span class="k">Prompt families w/ support</span>
+            <span class="v" id="design-stat-families">—</span>
+
+            <span class="k">Decisive human reviews</span>
+            <span class="v alert" id="design-stat-human">—</span>
+
+            <span class="k">Characterized rules</span>
+            <span class="v warn" id="design-stat-characterized">—</span>
+
+            <span class="k">Report source</span>
+            <span class="v">promote_rules.py</span>
+
+            <span class="k">Mode</span>
+            <span class="v warn" id="design-stat-mode">dry-run</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- § III.b Panel -->
+      <div class="panel">
+        <div class="panel-hd"><span>§ III.b · Panel</span><span class="badge">independent</span></div>
+        <div class="panel-body">
+          <div class="kv">
+            <span class="k">Muse</span>
+            <span class="v"><span id="design-panel-muse">—</span> <small>possibility reader</small></span>
+
+            <span class="k">Athena</span>
+            <span class="v"><span id="design-panel-athena">—</span> <small>skeptical auditor</small></span>
+
+            <span class="k">Apollo</span>
+            <span class="v"><span id="design-panel-apollo">—</span> <small>external evaluator</small></span>
+
+            <span class="k">Protocol</span>
+            <span class="v">muse_athena_apollo_<br/>v1_independent</span>
+
+            <span class="k">Attribution</span>
+            <span class="v">uniform <small>only method exercised</small></span>
+
+            <span class="k">Scout agent</span>
+            <span class="v dim">not_implemented <small>placeholder disabled</small></span>
+          </div>
+
+          <div class="agent-line" aria-label="Current loop state">
+            <div class="lbl">Loop state — live</div>
+            <div class="track" id="design-agent-track">
+              <div class="cell idle">Genesis</div>
+              <div class="cell idle">Theron</div>
+              <div class="cell idle">Muse</div>
+              <div class="cell idle">Athena</div>
+              <div class="cell idle">Apollo</div>
+            </div>
+            <div class="legend" id="design-loop-legend">Runner idle. Last packet filed and awaiting human review.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- § III.c Stability -->
+      <div class="panel">
+        <div class="panel-hd"><span>§ III.c · Instrument stability</span><span class="badge">30d window</span></div>
+        <div class="panel-body">
+          <div class="stability">
+            <div class="row">
+              <span class="k">Panel version</span>
+              <span class="bar"><span class="fill ok" style="width:98%"></span></span>
+              <span class="v">v1 · stable</span>
+            </div>
+            <div class="row">
+              <span class="k">Protocol</span>
+              <span class="bar"><span class="fill ok" style="width:100%"></span></span>
+              <span class="v">100% fixed</span>
+            </div>
+            <div class="row">
+              <span class="k">Schema</span>
+              <span class="bar"><span class="fill ok" style="width:100%"></span></span>
+              <span class="v">1 migration</span>
+            </div>
+            <div class="row">
+              <span class="k">Suppression</span>
+              <span class="bar" id="design-stability-suppression"><span class="fill" style="width:0%"></span></span>
+              <span class="v" id="design-stability-suppression-v">— / —</span>
+            </div>
+            <div class="row">
+              <span class="k">Human coverage</span>
+              <span class="bar"><span class="fill alert" style="width:0%" id="design-stability-human-fill"></span></span>
+              <span class="v alert" id="design-stability-human-v">0 / —</span>
+            </div>
+            <div class="row">
+              <span class="k">Total experiments</span>
+              <span class="bar"><span class="fill ok" style="width:100%"></span></span>
+              <span class="v" id="design-stat-experiments">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Drift commitment -->
+    <div class="drift marginal" style="margin-top:22px;max-width:820px;">
+      <span class="gloss-mark" aria-hidden="true">¶</span>
+      <div>
+        <b>Drift commitment.</b> This readout is not auto-generated from prose. If any claim above is false or stale, the expectation is that you open an issue referencing the exact line. Corrections are prioritized above new features.
+        <div class="gloss-aside">The instrument is instructed to <em>doubt itself on sight</em>, and to require the evidence of its own measurements before speaking.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════
+       LAB OPERATIONS (collapsible)
+       ═══════════════════════════════════════════════════════ -->
+  <details class="lab-ops-section">
+    <summary>Lab Operations</summary>
+    <div class="lab-ops-inner">
+
+      <!-- Council -->
+      <div class="council-area">
+        <div class="council-area-hd">
+          <span class="council-eyebrow">Council</span>
+          <div
+            class="council-strip-main"
+            role="button"
+            tabindex="0"
+            onclick="openLatestCouncilSession()"
+            onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openLatestCouncilSession();}"
+          >
+            <div class="council-surface-status" id="council-surface-status">No council session has been filed yet.</div>
+            <div class="council-latest-meta" id="council-surface-meta">Waiting for the first supervisory pass.</div>
+          </div>
+          <div class="council-latest-badge" id="council-surface-confidence">—</div>
+          <div class="council-strip-actions">
+            <button class="btn btn-refresh primary council-trigger-button" onclick="triggerCouncil()">Run Council</button>
+            <button class="btn btn-refresh" onclick="openLatestCouncilSession()">Council</button>
+            <button class="btn btn-refresh subtle" onclick="refresh()">Refresh</button>
+          </div>
+        </div>
+        <div class="rule-proposal-strip" id="rule-proposal-strip">
+          <div class="rule-proposal-head">
+            <span class="rule-proposal-kicker">Compiler Learning</span>
+            <span class="rule-proposal-count" id="rule-proposal-count">0 proposals</span>
+          </div>
+          <div class="rule-proposal-body" id="rule-proposal-body">No rule has accumulated enough evidence yet.</div>
+        </div>
+      </div>
+
+      <!-- Hidden governance cache (JS writes into these) -->
+      <div class="council-surface-cache" hidden>
+        <div id="council-surface-strongest"></div>
+        <div id="council-surface-diagnosis"></div>
+        <div id="council-surface-education"></div>
+        <div id="council-surface-next"></div>
+        <div id="council-surface-prompt-count">0</div>
+        <div id="council-surface-education-count">0</div>
+        <div id="council-surface-contrast-count">0</div>
+        <div id="council-governance-prompt"></div>
+        <div id="council-governance-education"></div>
+        <div id="council-governance-contrast"></div>
+      </div>
+
+      <!-- Pipeline -->
+      <div class="pipeline-area">
+        <div class="pipeline-area-hd">Generate → Judge → Review</div>
         <div class="pipeline">
-            <!-- GENERATE column -->
-            <div class="pipeline-col pipeline-generate">
-                <div class="pipeline-label">Generate</div>
 
-                <div class="cast-card" data-agent="genesis">
-                    <div class="cast-figure">
-                        <svg viewBox="0 0 80 64" fill="none">
-                            <rect x="38" y="48" width="28" height="4" rx="1" fill="currentColor" opacity="0.25"/>
-                            <rect x="44" y="44" width="16" height="6" rx="1" fill="currentColor" opacity="0.18"/>
-                            <circle cx="30" cy="18" r="5" fill="currentColor" opacity="0.8"/>
-                            <path d="M30 23 C30 23, 28 32, 26 40 L34 40 C32 32, 30 23, 30 23Z" fill="currentColor" opacity="0.7"/>
-                            <path d="M32 28 Q38 30, 44 38" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
-                            <rect x="43" y="34" width="6" height="2.5" rx="1" fill="currentColor" opacity="0.6" transform="rotate(-20 46 35)"/>
-                            <path d="M28 28 Q22 34, 20 38" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
-                            <path d="M28 40 L22 54" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
-                            <path d="M32 40 L36 54" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
-                            <circle cx="50" cy="36" r="1" fill="currentColor" opacity="0.5"><animate attributeName="opacity" values="0.5;0.9;0.3;0.7;0.5" dur="2.4s" repeatCount="indefinite"/></circle>
-                            <circle cx="54" cy="32" r="0.8" fill="currentColor" opacity="0.4"><animate attributeName="opacity" values="0.3;0.8;0.4;0.6;0.3" dur="1.8s" repeatCount="indefinite"/></circle>
-                            <circle cx="48" cy="30" r="0.7" fill="currentColor" opacity="0.35"><animate attributeName="opacity" values="0.4;0.7;0.2;0.5;0.4" dur="2.1s" repeatCount="indefinite"/></circle>
-                        </svg>
-                    </div>
-                    <div class="cast-name">Genesis</div>
-                    <div class="cast-model" id="cast-model-genesis">--</div>
-                </div>
-
-                <div class="cast-card" data-agent="theron">
-                    <div class="cast-figure">
-                        <svg viewBox="0 0 80 64" fill="none">
-                            <circle cx="38" cy="14" r="5" fill="currentColor" opacity="0.8"/>
-                            <path d="M38 19 C38 19, 37 28, 36 36 L42 36 C41 28, 38 19, 38 19Z" fill="currentColor" opacity="0.7"/>
-                            <path d="M40 24 Q46 22, 50 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
-                            <rect x="49" y="12" width="3" height="10" rx="1.5" fill="currentColor" opacity="0.5" transform="rotate(10 50 17)"/>
-                            <path d="M36 24 Q30 30, 28 36" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
-                            <path d="M37 36 L30 54" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
-                            <path d="M41 36 L48 54" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
-                            <path d="M34 20 Q26 24, 22 30" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.2"/>
-                            <path d="M34 26 Q28 30, 24 36" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.15"/>
-                        </svg>
-                    </div>
-                    <div class="cast-name">Theron</div>
-                    <div class="cast-model" id="cast-model-theron">--</div>
-                </div>
-
-                <div class="pipeline-flow-arrow">&rarr;</div>
+          <!-- GENERATE -->
+          <div class="pipeline-col pipeline-generate">
+            <div class="pipeline-label">Generate</div>
+            <div class="cast-card" data-agent="genesis">
+              <div class="cast-figure">
+                <svg viewBox="0 0 80 64" fill="none">
+                  <circle cx="30" cy="18" r="5" fill="currentColor" opacity="0.8"/>
+                  <path d="M30 23 C30 23, 28 32, 26 40 L34 40 C32 32, 30 23, 30 23Z" fill="currentColor" opacity="0.7"/>
+                  <path d="M32 28 Q38 30, 44 38" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+                  <rect x="43" y="34" width="6" height="2.5" rx="1" fill="currentColor" opacity="0.6" transform="rotate(-20 46 35)"/>
+                  <path d="M28 28 Q22 34, 20 38" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+                  <path d="M28 40 L22 54" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+                  <path d="M32 40 L36 54" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+                </svg>
+              </div>
+              <div class="cast-name">Genesis</div>
+              <div class="cast-model" id="cast-model-genesis">—</div>
             </div>
-
-            <!-- JUDGE column -->
-            <div class="pipeline-col pipeline-judge">
-                <div class="pipeline-label">Judge</div>
-
-                <div class="cast-card" data-agent="muse">
-                    <div class="cast-figure">
-                        <svg viewBox="0 0 80 64" fill="none">
-                            <path d="M26 42 L26 56" stroke="currentColor" stroke-width="1.5" opacity="0.2"/>
-                            <path d="M46 42 L46 56" stroke="currentColor" stroke-width="1.5" opacity="0.2"/>
-                            <rect x="24" y="38" width="24" height="4" rx="1" fill="currentColor" opacity="0.15"/>
-                            <rect x="24" y="24" width="3" height="18" rx="1" fill="currentColor" opacity="0.12"/>
-                            <circle cx="36" cy="14" r="5" fill="currentColor" opacity="0.8" transform="rotate(-8 36 14)"/>
-                            <path d="M36 19 C36 19, 35 26, 34 34 L40 34 C39 26, 36 19, 36 19Z" fill="currentColor" opacity="0.7"/>
-                            <path d="M38 26 Q44 28, 50 26" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
-                            <path d="M34 26 Q30 28, 28 30" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
-                            <path d="M48 22 L52 20 L52 30 L48 28Z" fill="currentColor" opacity="0.3"/>
-                            <path d="M52 20 L56 22 L56 32 L52 30Z" fill="currentColor" opacity="0.22"/>
-                            <path d="M35 34 Q32 40, 30 44" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
-                            <path d="M39 34 Q42 40, 44 44" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
-                        </svg>
-                    </div>
-                    <div class="cast-name">Muse</div>
-                    <div class="cast-role">Possibility reader</div>
-                    <div class="cast-model" id="cast-model-muse">--</div>
-                </div>
-
-                <div class="cast-card" data-agent="athena">
-                    <div class="cast-figure">
-                        <svg viewBox="0 0 80 64" fill="none">
-                            <circle cx="32" cy="12" r="5" fill="currentColor" opacity="0.8"/>
-                            <path d="M32 17 C32 17, 31 26, 30 36 L36 36 C35 26, 32 17, 32 17Z" fill="currentColor" opacity="0.7"/>
-                            <path d="M30 24 Q28 26, 36 28" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
-                            <path d="M34 24 Q36 26, 28 28" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.55"/>
-                            <path d="M31 36 L28 56" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
-                            <path d="M35 36 L38 56" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
-                            <line x1="52" y1="14" x2="52" y2="40" stroke="currentColor" stroke-width="1.5" opacity="0.3"/>
-                            <line x1="42" y1="18" x2="62" y2="18" stroke="currentColor" stroke-width="1.5" opacity="0.35" transform="rotate(-4 52 18)"/>
-                            <path d="M42 18 L40 26 L46 26Z" fill="currentColor" opacity="0.2"/>
-                            <path d="M62 18 L60 24 L66 24Z" fill="currentColor" opacity="0.2"/>
-                            <polygon points="48,40 56,40 54,42 50,42" fill="currentColor" opacity="0.2"/>
-                        </svg>
-                    </div>
-                    <div class="cast-name">Athena</div>
-                    <div class="cast-role">Skeptical auditor</div>
-                    <div class="cast-model" id="cast-model-athena">--</div>
-                </div>
-
-                <div class="cast-card" data-agent="apollo">
-                    <div class="cast-figure">
-                        <svg viewBox="0 0 80 64" fill="none">
-                            <path d="M22 56 L22 12 Q40 2, 58 12 L58 56" stroke="currentColor" stroke-width="1.5" fill="none" opacity="0.2"/>
-                            <line x1="40" y1="8" x2="40" y2="2" stroke="currentColor" stroke-width="0.8" opacity="0.2"><animate attributeName="opacity" values="0.15;0.3;0.15" dur="3s" repeatCount="indefinite"/></line>
-                            <line x1="30" y1="10" x2="24" y2="4" stroke="currentColor" stroke-width="0.8" opacity="0.15"><animate attributeName="opacity" values="0.1;0.25;0.1" dur="3.4s" repeatCount="indefinite"/></line>
-                            <line x1="50" y1="10" x2="56" y2="4" stroke="currentColor" stroke-width="0.8" opacity="0.15"><animate attributeName="opacity" values="0.12;0.28;0.12" dur="2.8s" repeatCount="indefinite"/></line>
-                            <circle cx="40" cy="18" r="4.5" fill="currentColor" opacity="0.75"/>
-                            <path d="M40 22 C40 22, 39 30, 38 38 L44 38 C43 30, 40 22, 40 22Z" fill="currentColor" opacity="0.65"/>
-                            <path d="M38 28 Q34 32, 30 36" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
-                            <path d="M42 28 Q46 32, 50 36" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
-                            <path d="M39 38 L36 54" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.55"/>
-                            <path d="M43 38 L46 54" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.55"/>
-                        </svg>
-                    </div>
-                    <div class="cast-name">Apollo</div>
-                    <div class="cast-role">External evaluator</div>
-                    <div class="cast-model" id="cast-model-apollo">--</div>
-                </div>
-
-                <div class="pipeline-flow-arrow">&rarr;</div>
+            <div class="cast-card" data-agent="theron">
+              <div class="cast-figure">
+                <svg viewBox="0 0 80 64" fill="none">
+                  <circle cx="38" cy="14" r="5" fill="currentColor" opacity="0.8"/>
+                  <path d="M38 19 C38 19, 37 28, 36 36 L42 36 C41 28, 38 19, 38 19Z" fill="currentColor" opacity="0.7"/>
+                  <path d="M40 24 Q46 22, 50 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+                  <path d="M36 24 Q30 30, 28 36" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+                  <path d="M37 36 L30 54" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+                  <path d="M41 36 L48 54" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+                </svg>
+              </div>
+              <div class="cast-name">Theron</div>
+              <div class="cast-model" id="cast-model-theron">—</div>
             </div>
+            <div class="pipeline-flow-arrow">&rarr;</div>
+          </div>
 
-            <!-- REVIEW column -->
-            <div class="pipeline-col pipeline-review">
-                <div class="pipeline-label">Review</div>
-
-                <div class="cast-card" data-agent="human">
-                    <div class="cast-figure">
-                        <svg viewBox="0 0 80 64" fill="none">
-                            <rect x="10" y="32" width="40" height="3" rx="1" fill="currentColor" opacity="0.2"/>
-                            <line x1="14" y1="35" x2="14" y2="56" stroke="currentColor" stroke-width="1.5" opacity="0.15"/>
-                            <line x1="46" y1="35" x2="46" y2="56" stroke="currentColor" stroke-width="1.5" opacity="0.15"/>
-                            <rect x="52" y="20" width="3" height="36" rx="1" fill="currentColor" opacity="0.2"/>
-                            <rect x="68" y="36" width="3" height="20" rx="1" fill="currentColor" opacity="0.15"/>
-                            <rect x="52" y="36" width="19" height="3" rx="1" fill="currentColor" opacity="0.18"/>
-                            <rect x="52" y="18" width="19" height="3" rx="1" fill="currentColor" opacity="0.15"/>
-                            <line x1="71" y1="18" x2="71" y2="36" stroke="currentColor" stroke-width="2" opacity="0.12"/>
-                            <path d="M2 28 Q8 26, 16 28" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
-                            <path d="M16 28 Q18 26, 20 25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
-                            <path d="M16 28 Q19 27, 21 27" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
-                            <path d="M16 28 Q19 29, 21 29" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.45"/>
-                            <rect x="28" y="28" width="8" height="2.5" rx="1" fill="currentColor" opacity="0.3"/>
-                            <rect x="31" y="24" width="2.5" height="5" rx="1" fill="currentColor" opacity="0.25"/>
-                        </svg>
-                    </div>
-                    <div class="cast-name">You</div>
-                    <div class="cast-role">Final authority</div>
-                </div>
-
-                <div class="review-summary-card" id="review-summary-card">
-                    <div class="review-summary-count" id="review-summary-count">0</div>
-                    <div class="review-summary-label">packets awaiting judgment</div>
-                </div>
-
-                <div class="review-queue-compact" id="review-queue-grid">
-                    <div class="analysis-empty">No queue.</div>
-                </div>
-
-                <div class="pipeline-stats-card">
-                    <div class="stat-sub"><span id="stat-kept">0</span> kept &middot; <span id="stat-discarded">0</span> disc &middot; <span id="stat-promoted">0</span> promoted</div>
-                    <div class="stat-sub"><span id="stat-baseline">--</span></div>
-                    <div class="cost-bar-container">
-                        <div class="cost-bar" id="cost-bar" style="width: 0%; background: var(--green);"></div>
-                    </div>
-                    <div class="stat-sub">of $<span id="stat-cap">50</span> cap</div>
-                </div>
+          <!-- JUDGE -->
+          <div class="pipeline-col pipeline-judge">
+            <div class="pipeline-label">Judge</div>
+            <div class="cast-card" data-agent="muse">
+              <div class="cast-figure">
+                <svg viewBox="0 0 80 64" fill="none">
+                  <circle cx="36" cy="14" r="5" fill="currentColor" opacity="0.8" transform="rotate(-8 36 14)"/>
+                  <path d="M36 19 C36 19, 35 26, 34 34 L40 34 C39 26, 36 19, 36 19Z" fill="currentColor" opacity="0.7"/>
+                  <path d="M38 26 Q44 28, 50 26" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+                  <path d="M34 26 Q30 28, 28 30" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+                  <path d="M35 34 Q32 40, 30 44" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
+                  <path d="M39 34 Q42 40, 44 44" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
+                </svg>
+              </div>
+              <div class="cast-name">Muse</div>
+              <div class="cast-role">Possibility reader</div>
+              <div class="cast-model" id="cast-model-muse">—</div>
             </div>
+            <div class="cast-card" data-agent="athena">
+              <div class="cast-figure">
+                <svg viewBox="0 0 80 64" fill="none">
+                  <circle cx="32" cy="12" r="5" fill="currentColor" opacity="0.8"/>
+                  <path d="M32 17 C32 17, 31 26, 30 36 L36 36 C35 26, 32 17, 32 17Z" fill="currentColor" opacity="0.7"/>
+                  <path d="M31 36 L28 56" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+                  <path d="M35 36 L38 56" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+                  <line x1="52" y1="14" x2="52" y2="40" stroke="currentColor" stroke-width="1.5" opacity="0.3"/>
+                  <line x1="42" y1="18" x2="62" y2="18" stroke="currentColor" stroke-width="1.5" opacity="0.35" transform="rotate(-4 52 18)"/>
+                </svg>
+              </div>
+              <div class="cast-name">Athena</div>
+              <div class="cast-role">Skeptical auditor</div>
+              <div class="cast-model" id="cast-model-athena">—</div>
+            </div>
+            <div class="cast-card" data-agent="apollo">
+              <div class="cast-figure">
+                <svg viewBox="0 0 80 64" fill="none">
+                  <path d="M22 56 L22 12 Q40 2, 58 12 L58 56" stroke="currentColor" stroke-width="1.5" fill="none" opacity="0.2"/>
+                  <circle cx="40" cy="18" r="4.5" fill="currentColor" opacity="0.75"/>
+                  <path d="M40 22 C40 22, 39 30, 38 38 L44 38 C43 30, 40 22, 40 22Z" fill="currentColor" opacity="0.65"/>
+                  <path d="M38 28 Q34 32, 30 36" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+                  <path d="M42 28 Q46 32, 50 36" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+                  <path d="M39 38 L36 54" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.55"/>
+                  <path d="M43 38 L46 54" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.55"/>
+                </svg>
+              </div>
+              <div class="cast-name">Apollo</div>
+              <div class="cast-role">External evaluator</div>
+              <div class="cast-model" id="cast-model-apollo">—</div>
+            </div>
+            <div class="pipeline-flow-arrow">&rarr;</div>
+          </div>
+
+          <!-- REVIEW -->
+          <div class="pipeline-col pipeline-review">
+            <div class="pipeline-label">Review</div>
+            <div class="cast-card" data-agent="human">
+              <div class="cast-figure">
+                <svg viewBox="0 0 80 64" fill="none">
+                  <rect x="10" y="32" width="40" height="3" rx="1" fill="currentColor" opacity="0.2"/>
+                  <path d="M2 28 Q8 26, 16 28" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+                  <path d="M16 28 Q19 27, 21 27" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+                  <rect x="28" y="28" width="8" height="2.5" rx="1" fill="currentColor" opacity="0.3"/>
+                  <rect x="31" y="24" width="2.5" height="5" rx="1" fill="currentColor" opacity="0.25"/>
+                </svg>
+              </div>
+              <div class="cast-name">You</div>
+              <div class="cast-role">Final authority</div>
+            </div>
+            <div class="review-summary-card">
+              <div class="review-summary-count" id="review-summary-count">0</div>
+              <div class="review-summary-label">packets awaiting judgment</div>
+            </div>
+            <div id="review-queue-grid">
+              <div class="analysis-empty">No queue.</div>
+            </div>
+            <div class="pipeline-stats-card">
+              <div class="stat-sub"><span id="stat-kept">0</span> kept &middot; <span id="stat-discarded">0</span> disc &middot; <span id="stat-promoted">0</span> promoted</div>
+              <div class="stat-sub"><span id="stat-baseline">—</span></div>
+              <div class="cost-bar-container">
+                <div class="cost-bar" id="cost-bar" style="width:0%;background:var(--ok);"></div>
+              </div>
+              <div class="stat-sub">of $<span id="stat-cap">50</span> cap</div>
+            </div>
+          </div>
+
         </div>
-        </section>
+      </div>
 
-        <!-- ── RUNNER: prompt input at bottom ── -->
-        <section class="runner-section">
-            <div class="runner-bar">
-                <div class="runner-inputs">
-                    <textarea id="paired-prompt" rows="2" placeholder="Write a prompt. Genesis and Theron will both attempt it."></textarea>
-                    <div class="runner-controls">
-                        <select id="paired-lane"><option value="creative">creative</option><option value="business">business</option></select>
-                        <select id="paired-condition"><option value="critique_on">critique on</option><option value="critique_off">critique off</option></select>
-                        <label class="runner-checkbox"><input id="paired-generate-external" type="checkbox" /><span>Generate Theron</span></label>
-                        <button class="btn btn-start" onclick="runPairedExperiment()">Run Packet</button>
-                        <button class="btn btn-start" onclick="runCompilerCompare()">Run Compiler A/B</button>
-                        <div class="runner-divider"></div>
-                        <button class="btn btn-start" onclick="startLab()">Batch</button>
-                        <input id="batch-size" type="number" min="1" max="200" value="10" class="batch-input" />
-                        <button class="btn btn-stop" onclick="stopLab()">Stop</button>
-                    </div>
-                </div>
-                <div class="runner-status-row">
-                    <span class="modal-inline-note theron-status-line" id="paired-theron-status">Theron: checking...</span>
-                    <span class="custom-runner-status" id="paired-runner-status"></span>
-                </div>
-            </div>
-
-            <details class="operator-details runner-advanced">
-                <summary>Advanced options</summary>
-                <div class="runner-advanced-grid">
-                    <label class="review-field review-field-block">
-                        <span>Constraints (one per line)</span>
-                        <textarea id="paired-constraints" rows="3" placeholder="Optional constraints, one per line."></textarea>
-                    </label>
-                    <div class="modal-review-grid">
-                        <label class="review-field"><span>Family</span><input id="paired-family" type="text" value="personification" /></label>
-                        <label class="review-field"><span>Track</span><input id="paired-track" type="text" value="paired" /></label>
-                        <label class="review-field"><span>Genesis Role</span><input id="paired-local-role" type="text" value="genesis" /></label>
-                        <label class="review-field"><span>Theron Role</span><input id="paired-external-role" type="text" value="theron" /></label>
-                        <label class="review-field"><span>Theron Provider</span><input id="paired-external-provider" type="text" value="theron_manual" /></label>
-                        <label class="review-field"><span>Theron Protocol</span><input id="paired-external-protocol" type="text" value="paired_external_manual" /></label>
-                    </div>
-                    <label class="review-field review-field-block">
-                        <span>Theron Artifact (manual)</span>
-                        <textarea id="paired-external-artifact" rows="4" placeholder="Paste Theron’s artifact here for manual submission."></textarea>
-                    </label>
-                </div>
-            </details>
-
-            <details class="operator-details runner-advanced">
-                <summary>Single experiment</summary>
-                <div class="runner-advanced-grid">
-                    <div class="modal-review-grid">
-                        <label class="review-field"><span>Lane</span><select id="custom-lane"><option value="creative">creative</option><option value="business">business</option></select></label>
-                        <label class="review-field"><span>Track</span><input id="custom-track" type="text" value="custom" /></label>
-                        <label class="review-field"><span>Condition</span><select id="custom-condition"><option value="critique_on">with critique</option><option value="critique_off">without critique</option></select></label>
-                        <label class="review-field"><span>Family</span><input id="custom-family" type="text" value="custom_operator" /></label>
-                        <label class="review-field"><span>Creativity Type</span><input id="custom-creativity-type" type="text" value="custom" /></label>
-                        <label class="review-field"><span>Hypothesis ID</span><input id="custom-hypothesis" type="text" placeholder="optional" /></label>
-                    </div>
-                    <label class="review-field review-field-block"><span>Prompt</span><textarea id="custom-prompt" rows="3" placeholder="Single experiment prompt."></textarea></label>
-                    <label class="review-field review-field-block"><span>Constraints</span><textarea id="custom-constraints" rows="3" placeholder="One per line."></textarea></label>
-                    <div class="modal-review-actions"><button class="btn btn-start" onclick="runCustomExperiment()">Run Single</button><span class="custom-runner-status" id="custom-runner-status"></span></div>
-                </div>
-            </details>
-        </section>
-
-        <!-- ── INTELLIGENCE: research + analysis below the fold ── -->
-        <section class="intel-section">
-            <details class="deep-readout" open>
-                <summary>Intelligence</summary>
-                <div class="executive-grid research-grid">
-                    <div class="analysis-summary-card executive-card">
-                        <div class="analysis-title">Packets Needing Review</div>
-                        <div class="analysis-body" id="analysis-disagreement-queue">Waiting for data...</div>
-                    </div>
-                    <div class="analysis-summary-card executive-card">
-                        <div class="analysis-title">What Human Review Is Teaching</div>
-                        <div class="analysis-body" id="analysis-human-characterization">Waiting for data...</div>
-                    </div>
-                    <div class="analysis-summary-card executive-card">
-                        <div class="analysis-title">Research Thesis</div>
-                        <div class="analysis-body" id="analysis-summary">Waiting for data...</div>
-                    </div>
-                    <div class="analysis-summary-card executive-card">
-                        <div class="analysis-title">What Changed In Memory</div>
-                        <div class="analysis-body" id="analysis-learning-snapshot">Waiting for data...</div>
-                    </div>
-                    <div class="analysis-summary-card executive-card">
-                        <div class="analysis-title">What Generators Are Learning</div>
-                        <div class="analysis-body" id="analysis-generator-learning">Waiting for data...</div>
-                    </div>
-                </div>
-            </details>
-
-            <details class="deep-readout telemetry-readout">
-                <summary>Telemetry</summary>
-                <div class="dimensions-grid">
-                    <div class="dimension-card"><div class="dimension-label">Novelty</div><div class="dimension-value" id="dim-novelty">--</div><div class="dimension-bar"><div class="dimension-bar-fill" id="bar-novelty" style="width: 0%"></div></div></div>
-                    <div class="dimension-card"><div class="dimension-label">Surprise</div><div class="dimension-value" id="dim-surprise">--</div><div class="dimension-bar"><div class="dimension-bar-fill" id="bar-surprise" style="width: 0%"></div></div></div>
-                    <div class="dimension-card"><div class="dimension-label">Value</div><div class="dimension-value" id="dim-value">--</div><div class="dimension-bar"><div class="dimension-bar-fill" id="bar-value" style="width: 0%"></div></div></div>
-                    <div class="dimension-card"><div class="dimension-label">Elaboration</div><div class="dimension-value" id="dim-elaboration">--</div><div class="dimension-bar"><div class="dimension-bar-fill" id="bar-elaboration" style="width: 0%"></div></div></div>
-                    <div class="dimension-card"><div class="dimension-label">Coherence</div><div class="dimension-value" id="dim-coherence">--</div><div class="dimension-bar"><div class="dimension-bar-fill" id="bar-coherence" style="width: 0%"></div></div></div>
-                </div>
-                <div class="chart-state-row">
-                    <div>
-                        <div class="section-label">Trajectory</div>
-                        <div class="chart-container"><div class="chart-canvas-wrap"><canvas id="score-chart"></canvas></div></div>
-                    </div>
-                    <div>
-                        <div class="section-label">Operating State</div>
-                        <div class="state-panel">
-                            <div class="state-item"><span class="state-key">State: </span><span class="state-val" id="state-running">idle</span></div>
-                            <div class="state-item"><span class="state-key">Lane: </span><span class="state-val" id="state-lane">--</span></div>
-                            <div class="state-item"><span class="state-key">Track: </span><span class="state-val" id="state-track">--</span></div>
-                            <div class="state-item"><span class="state-key">Experiment: </span><span class="state-val" id="state-experiment">#--</span></div>
-                            <div class="state-item"><span class="state-key">Updated: </span><span class="state-val" id="state-updated">--</span></div>
-                        </div>
-                        <div class="section-label" style="margin-top: 16px;">Trend Statistics</div>
-                        <div class="state-panel" id="trend-details"><span class="state-key">Waiting for data...</span></div>
-                    </div>
-                </div>
-            </details>
-
-            <details class="deep-readout">
-                <summary>Deep research readout</summary>
-                <div class="recommendation-grid">
-                    <div class="recommendation-card"><div class="analysis-title">Scale</div><div class="analysis-body" id="analysis-scale">Waiting for data...</div></div>
-                    <div class="recommendation-card"><div class="analysis-title">Watch</div><div class="analysis-body" id="analysis-watch">Waiting for data...</div></div>
-                    <div class="recommendation-card"><div class="analysis-title">Stop</div><div class="analysis-body" id="analysis-stop">Waiting for data...</div></div>
-                    <div class="recommendation-card"><div class="analysis-title">Open Question</div><div class="analysis-body" id="analysis-question">Waiting for data...</div></div>
-                </div>
-                <div class="analysis-grid">
-                    <div class="analysis-card"><div class="analysis-title">Hypotheses By Family</div><div class="analysis-body" id="analysis-hypotheses">Waiting for data...</div></div>
-                    <div class="analysis-card"><div class="analysis-title">Creativity vs Utility</div><div class="analysis-body" id="analysis-balance">Waiting for data...</div></div>
-                    <div class="analysis-card"><div class="analysis-title">Critique Delta</div><div class="analysis-body" id="analysis-paired">Waiting for data...</div></div>
-                    <div class="analysis-card"><div class="analysis-title">Business Creativity Tax</div><div class="analysis-body" id="analysis-tax">Waiting for data...</div></div>
-                    <div class="analysis-card"><div class="analysis-title">Current Champions</div><div class="analysis-body" id="analysis-champions">Waiting for data...</div></div>
-                    <div class="analysis-card"><div class="analysis-title">Policy Effects</div><div class="analysis-body" id="analysis-policy-effects">Waiting for data...</div></div>
-                    <div class="analysis-card"><div class="analysis-title">Policy Validation</div><div class="analysis-body" id="analysis-policy-validation">Waiting for data...</div></div>
-                    <div class="analysis-card"><div class="analysis-title">Evaluator Diagnostics</div><div class="analysis-body" id="analysis-diagnostics">Waiting for data...</div></div>
-                    <div class="analysis-card"><div class="analysis-title">Protocol Reliability</div><div class="analysis-body" id="analysis-protocol-reliability">Waiting for data...</div></div>
-                    <div class="analysis-card"><div class="analysis-title">Constraint Verifier</div><div class="analysis-body" id="analysis-constraint-verifier">Waiting for data...</div></div>
-                    <div class="analysis-card"><div class="analysis-title">Characterization Metrics</div><div class="analysis-body" id="analysis-calibration-metrics">Waiting for data...</div></div>
-                    <div class="analysis-card"><div class="analysis-title">Policy Ledger</div><div class="analysis-body" id="analysis-policy-ledger">Waiting for data...</div></div>
-                </div>
-            </details>
-        </section>
-
-        <!-- ── HISTORY TABLE ── -->
-        <section class="history-section">
-            <div class="section-label" id="review-queue-anchor">Recent Outcomes <span class="history-hint">(click a row to inspect)</span></div>
-            <div class="history-table-wrap">
-                <table class="history-table">
-                    <thead><tr><th>#</th><th>Outcome</th><th>Prompt</th><th>Voice</th><th>Judges</th><th>Packet</th><th>Mode</th></tr></thead>
-                    <tbody id="history-body"></tbody>
-                </table>
-            </div>
-        </section>
-    </div>
-
-    <!-- Modal -->
-    <div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
-        <div class="modal" onclick="event.stopPropagation()">
-            <h3 id="modal-title">Experiment #--</h3>
-            <div class="modal-meta" id="modal-meta"></div>
-            <div class="modal-balance" id="modal-balance" style="display:none;"></div>
-            <div class="modal-section">
-                <div class="modal-section-label">Prompt</div>
-                <div class="modal-section-content" id="modal-prompt"></div>
-            </div>
-            <div class="modal-section">
-                <div class="modal-section-label">Artifact</div>
-                <div class="modal-section-content" id="modal-artifact"></div>
-            </div>
-            <div class="modal-section" id="modal-provenance-section" style="display:none;">
-                <div class="modal-section-label">Provenance</div>
-                <div class="modal-section-content" id="modal-provenance"></div>
-            </div>
-            <div class="modal-section" id="modal-role-packets-section" style="display:none;">
-                <div class="modal-section-label">Role Packet</div>
-                <div class="modal-section-content" id="modal-role-packets"></div>
-            </div>
-            <div class="modal-section" id="modal-comparison-section" style="display:none;">
-                <div class="modal-section-label">Comparison Packet</div>
-                <div class="modal-section-content" id="modal-comparison"></div>
-            </div>
-            <div class="modal-section">
-                <div class="modal-section-label">Human Characterization</div>
-                <div class="modal-review-intro" id="modal-review-intro">Score this artifact before revealing the model evaluation. Use the 1-5 questions for your fast judgment, then optionally add 1-10 dimension scores to compare directly with MUSE.</div>
-                <div class="modal-review-status" id="modal-review-status" style="display:none;"></div>
-                <div class="modal-review-grid">
-                    <label class="review-field">
-                        <span id="review-interesting-label">Interesting (1-5)</span>
-                        <select id="review-interesting">
-                            <option value="">Select</option>
-                            <option value="1">1</option>
-                            <option value="2">2</option>
-                            <option value="3">3</option>
-                            <option value="4">4</option>
-                            <option value="5">5</option>
-                        </select>
-                    </label>
-                    <label class="review-field">
-                        <span>Effective (1-5)</span>
-                        <select id="review-effective">
-                            <option value="">Select</option>
-                            <option value="1">1</option>
-                            <option value="2">2</option>
-                            <option value="3">3</option>
-                            <option value="4">4</option>
-                            <option value="5">5</option>
-                        </select>
-                    </label>
-                    <label class="review-field">
-                        <span>Constraint Fit (1-5)</span>
-                        <select id="review-constraint-fit">
-                            <option value="">Select</option>
-                            <option value="1">1</option>
-                            <option value="2">2</option>
-                            <option value="3">3</option>
-                            <option value="4">4</option>
-                            <option value="5">5</option>
-                        </select>
-                    </label>
-                    <label class="review-field">
-                        <span>Worth Saving (1-5)</span>
-                        <select id="review-worth-saving">
-                            <option value="">Select</option>
-                            <option value="1">1</option>
-                            <option value="2">2</option>
-                            <option value="3">3</option>
-                            <option value="4">4</option>
-                            <option value="5">5</option>
-                        </select>
-                    </label>
-                </div>
-                <div class="modal-section-label">Optional Direct Comparison To MUSE</div>
-                <div class="modal-review-grid">
-                    <label class="review-field">
-                        <span>Novelty (1-10)</span>
-                        <input id="review-novelty" type="number" min="1" max="10" />
-                    </label>
-                    <label class="review-field">
-                        <span>Surprise (1-10)</span>
-                        <input id="review-surprise" type="number" min="1" max="10" />
-                    </label>
-                    <label class="review-field">
-                        <span>Value (1-10)</span>
-                        <input id="review-value" type="number" min="1" max="10" />
-                    </label>
-                    <label class="review-field">
-                        <span>Elaboration (1-10)</span>
-                        <input id="review-elaboration" type="number" min="1" max="10" />
-                    </label>
-                    <label class="review-field">
-                        <span>Coherence (1-10)</span>
-                        <input id="review-coherence" type="number" min="1" max="10" />
-                    </label>
-                </div>
-                <label class="review-field review-field-block">
-                    <span>Best Part</span>
-                    <textarea id="review-best-part" rows="2"></textarea>
-                </label>
-                <label class="review-field review-field-block">
-                    <span>Missed Opportunity</span>
-                    <textarea id="review-missed-opportunity" rows="3"></textarea>
-                </label>
-                <label class="review-field review-field-block">
-                    <span>Socratic Question</span>
-                    <textarea id="review-socratic-question" rows="3"></textarea>
-                </label>
-                <div class="modal-review-actions">
-                    <button class="btn-refresh" id="review-save-button" onclick="saveHumanReview()">Save Human Review</button>
-                    <button class="btn-refresh" id="review-reveal-button" onclick="toggleModelEvaluation()">Reveal Model Evaluation</button>
-                </div>
-            </div>
-            <div class="modal-model-eval hidden" id="modal-model-eval">
-                <div class="modal-constraint-status" id="modal-constraints" style="display:none;"></div>
-                <div class="modal-review-comparison" id="modal-review-comparison" style="display:none;"></div>
-                <div class="modal-scores" id="modal-scores"></div>
-                <div class="modal-scores" id="modal-holdout" style="display:none;"></div>
-                <div class="modal-section">
-                    <div class="modal-section-label">Critique</div>
-                    <div class="modal-section-content" id="modal-critique"></div>
-                </div>
-            </div>
-            <div class="modal-section">
-                <div class="modal-section-label">Process Trace</div>
-                <div class="modal-section-content" id="modal-trace"></div>
-            </div>
-            <div class="modal-section" id="modal-verifier-section" style="display:none;">
-                <div class="modal-section-label">Verifier</div>
-                <div class="modal-section-content" id="modal-verifier"></div>
-            </div>
-            <div class="modal-section" id="modal-error-section" style="display:none;">
-                <div class="modal-section-label">Error Traceback</div>
-                <div class="modal-section-content modal-error" id="modal-error"></div>
-            </div>
-            <button class="modal-close" onclick="document.getElementById('modal-overlay').classList.remove('active')">Close</button>
+      <!-- Runner -->
+      <div class="runner-area">
+        <div class="runner-area-hd">Run a packet</div>
+        <div class="runner-inputs">
+          <textarea id="paired-prompt" rows="2" placeholder="Write a prompt. Genesis and Theron will both attempt it."></textarea>
+          <div class="runner-controls">
+            <select id="paired-lane"><option value="creative">creative</option><option value="business">business</option></select>
+            <select id="paired-condition"><option value="critique_on">critique on</option><option value="critique_off">critique off</option></select>
+            <label class="runner-checkbox"><input id="paired-generate-external" type="checkbox"/><span>Generate Theron</span></label>
+            <button class="btn btn-start" onclick="runPairedExperiment()">Run Packet</button>
+            <button class="btn btn-start" onclick="runCompilerCompare()">Run Compiler A/B</button>
+            <div class="runner-divider"></div>
+            <button class="btn btn-start" onclick="startLab()">Batch</button>
+            <input id="batch-size" type="number" min="1" max="200" value="10" class="batch-input"/>
+            <button class="btn btn-stop" onclick="stopLab()">Stop</button>
+          </div>
+          <div class="runner-status-row">
+            <span class="theron-status-line" id="paired-theron-status">Theron: checking&hellip;</span>
+            <span class="custom-runner-status" id="paired-runner-status"></span>
+          </div>
         </div>
-    </div>
 
-    <div class="modal-overlay" id="council-modal-overlay" onclick="closeCouncilModal(event)">
-        <div class="modal council-modal" onclick="event.stopPropagation()">
-            <h3 id="council-modal-title">Lab Research Council</h3>
-            <div class="modal-meta" id="council-modal-meta"></div>
+        <details class="operator-details">
+          <summary>Advanced options</summary>
+          <div class="runner-advanced-grid">
+            <label class="review-field review-field-block">
+              <span>Constraints (one per line)</span>
+              <textarea id="paired-constraints" rows="3" placeholder="Optional constraints, one per line."></textarea>
+            </label>
+            <div class="modal-review-grid">
+              <label class="review-field"><span>Family</span><input id="paired-family" type="text" value="personification"/></label>
+              <label class="review-field"><span>Track</span><input id="paired-track" type="text" value="paired"/></label>
+              <label class="review-field"><span>Genesis Role</span><input id="paired-local-role" type="text" value="genesis"/></label>
+              <label class="review-field"><span>Theron Role</span><input id="paired-external-role" type="text" value="theron"/></label>
+              <label class="review-field"><span>Theron Provider</span><input id="paired-external-provider" type="text" value="theron_manual"/></label>
+              <label class="review-field"><span>Theron Protocol</span><input id="paired-external-protocol" type="text" value="paired_external_manual"/></label>
+            </div>
+            <label class="review-field review-field-block">
+              <span>Theron Artifact (manual)</span>
+              <textarea id="paired-external-artifact" rows="4" placeholder="Paste Theron's artifact here for manual submission."></textarea>
+            </label>
+          </div>
+        </details>
 
-            <div class="recommendation-grid council-grid">
-                <div class="recommendation-card">
-                    <div class="analysis-title">Confidence</div>
-                    <div class="analysis-body" id="council-confidence">--</div>
-                </div>
-                <div class="recommendation-card">
-                    <div class="analysis-title">Strongest Finding</div>
-                    <div class="analysis-body" id="council-strongest">--</div>
-                </div>
-                <div class="recommendation-card">
-                    <div class="analysis-title">Recommendation</div>
-                    <div class="analysis-body" id="council-recommendation">--</div>
-                </div>
-                <div class="recommendation-card">
-                    <div class="analysis-title">Next Experiment</div>
-                    <div class="analysis-body" id="council-next">--</div>
-                </div>
+        <details class="operator-details">
+          <summary>Single experiment</summary>
+          <div class="runner-advanced-grid">
+            <div class="modal-review-grid">
+              <label class="review-field"><span>Lane</span><select id="custom-lane"><option value="creative">creative</option><option value="business">business</option></select></label>
+              <label class="review-field"><span>Track</span><input id="custom-track" type="text" value="custom"/></label>
+              <label class="review-field"><span>Condition</span><select id="custom-condition"><option value="critique_on">with critique</option><option value="critique_off">without critique</option></select></label>
+              <label class="review-field"><span>Family</span><input id="custom-family" type="text" value="custom_operator"/></label>
+              <label class="review-field"><span>Creativity Type</span><input id="custom-creativity-type" type="text" value="custom"/></label>
+              <label class="review-field"><span>Hypothesis ID</span><input id="custom-hypothesis" type="text" placeholder="optional"/></label>
             </div>
+            <label class="review-field review-field-block"><span>Prompt</span><textarea id="custom-prompt" rows="3" placeholder="Single experiment prompt."></textarea></label>
+            <label class="review-field review-field-block"><span>Constraints</span><textarea id="custom-constraints" rows="3" placeholder="One per line."></textarea></label>
+            <div class="modal-review-actions">
+              <button class="btn btn-start" onclick="runCustomExperiment()">Run Single</button>
+              <span class="custom-runner-status" id="custom-runner-status"></span>
+            </div>
+          </div>
+        </details>
+      </div>
 
-            <div class="modal-section">
-                <div class="modal-section-label">Stop Doing</div>
-                <div class="modal-section-content" id="council-stop"></div>
+      <!-- Intelligence -->
+      <div class="intel-area">
+        <details class="deep-readout" open>
+          <summary>Intelligence</summary>
+          <div>
+            <div class="executive-grid research-grid">
+              <div class="analysis-summary-card executive-card"><div class="analysis-title">Packets Needing Review</div><div class="analysis-body" id="analysis-disagreement-queue">Waiting for data&hellip;</div></div>
+              <div class="analysis-summary-card executive-card"><div class="analysis-title">What Human Review Is Teaching</div><div class="analysis-body" id="analysis-human-characterization">Waiting for data&hellip;</div></div>
+              <div class="analysis-summary-card executive-card"><div class="analysis-title">Research Thesis</div><div class="analysis-body" id="analysis-summary">Waiting for data&hellip;</div></div>
+              <div class="analysis-summary-card executive-card"><div class="analysis-title">What Changed In Memory</div><div class="analysis-body" id="analysis-learning-snapshot">Waiting for data&hellip;</div></div>
             </div>
-            <div class="modal-section">
-                <div class="modal-section-label">Evaluator Trust</div>
-                <div class="modal-section-content" id="council-evaluator"></div>
-            </div>
-            <div class="modal-section">
-                <div class="modal-section-label">Prompt Diagnosis</div>
-                <div class="modal-section-content" id="council-prompt-diagnosis"></div>
-            </div>
-            <div class="modal-section">
-                <div class="modal-section-label">Evaluator Education</div>
-                <div class="modal-section-content" id="council-evaluator-education"></div>
-            </div>
-            <div class="modal-section">
-                <div class="modal-section-label">Prompt Diagnosis Refinements</div>
-                <div class="modal-section-content" id="council-prompt-recommendations"></div>
-            </div>
-            <div class="modal-section">
-                <div class="modal-section-label">Evaluator Curriculum Refinements</div>
-                <div class="modal-section-content" id="council-evaluator-recommendations"></div>
-            </div>
-            <div class="modal-section">
-                <div class="modal-section-label">Contrast Set Candidates</div>
-                <div class="modal-section-content" id="council-contrast-candidates"></div>
-            </div>
-            <div class="modal-section">
-                <div class="modal-section-label">Protocol Assessment</div>
-                <div class="modal-section-content" id="council-protocol"></div>
-            </div>
-            <div class="modal-section">
-                <div class="modal-section-label">Research Memo</div>
-                <div class="modal-section-content" id="council-memo"></div>
-            </div>
+          </div>
+        </details>
 
-            <button class="modal-close" onclick="document.getElementById('council-modal-overlay').classList.remove('active')">Close</button>
+        <details class="deep-readout">
+          <summary>Telemetry</summary>
+          <div>
+            <div class="dimensions-grid">
+              <div class="dimension-card"><div class="dimension-label">Novelty</div><div class="dimension-value" id="dim-novelty">—</div><div class="dimension-bar"><div class="dimension-bar-fill" id="bar-novelty" style="width:0%"></div></div></div>
+              <div class="dimension-card"><div class="dimension-label">Surprise</div><div class="dimension-value" id="dim-surprise">—</div><div class="dimension-bar"><div class="dimension-bar-fill" id="bar-surprise" style="width:0%"></div></div></div>
+              <div class="dimension-card"><div class="dimension-label">Value</div><div class="dimension-value" id="dim-value">—</div><div class="dimension-bar"><div class="dimension-bar-fill" id="bar-value" style="width:0%"></div></div></div>
+              <div class="dimension-card"><div class="dimension-label">Elaboration</div><div class="dimension-value" id="dim-elaboration">—</div><div class="dimension-bar"><div class="dimension-bar-fill" id="bar-elaboration" style="width:0%"></div></div></div>
+              <div class="dimension-card"><div class="dimension-label">Coherence</div><div class="dimension-value" id="dim-coherence">—</div><div class="dimension-bar"><div class="dimension-bar-fill" id="bar-coherence" style="width:0%"></div></div></div>
+            </div>
+            <div class="chart-state-row">
+              <div>
+                <div class="section-label">Trajectory</div>
+                <div class="chart-container"><div class="chart-canvas-wrap"><canvas id="score-chart"></canvas></div></div>
+              </div>
+              <div>
+                <div class="section-label">Operating State</div>
+                <div class="state-panel">
+                  <div class="state-item"><span class="state-key">State: </span><span class="state-val" id="state-running">idle</span></div>
+                  <div class="state-item"><span class="state-key">Lane: </span><span class="state-val" id="state-lane">—</span></div>
+                  <div class="state-item"><span class="state-key">Track: </span><span class="state-val" id="state-track">—</span></div>
+                  <div class="state-item"><span class="state-key">Experiment: </span><span class="state-val" id="state-experiment">#—</span></div>
+                  <div class="state-item"><span class="state-key">Updated: </span><span class="state-val" id="state-updated">—</span></div>
+                </div>
+                <div class="section-label" style="margin-top:14px;">Trend Statistics</div>
+                <div class="state-panel" id="trend-details"><span class="state-key">Waiting for data&hellip;</span></div>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <details class="deep-readout">
+          <summary>Deep research readout</summary>
+          <div>
+            <div class="recommendation-grid">
+              <div class="recommendation-card"><div class="analysis-title">Scale</div><div class="analysis-body" id="analysis-scale">Waiting&hellip;</div></div>
+              <div class="recommendation-card"><div class="analysis-title">Watch</div><div class="analysis-body" id="analysis-watch">Waiting&hellip;</div></div>
+              <div class="recommendation-card"><div class="analysis-title">Stop</div><div class="analysis-body" id="analysis-stop">Waiting&hellip;</div></div>
+              <div class="recommendation-card"><div class="analysis-title">Open Question</div><div class="analysis-body" id="analysis-question">Waiting&hellip;</div></div>
+            </div>
+            <div class="analysis-grid">
+              <div class="analysis-card"><div class="analysis-title">Hypotheses By Family</div><div class="analysis-body" id="analysis-hypotheses">Waiting&hellip;</div></div>
+              <div class="analysis-card"><div class="analysis-title">Creativity vs Utility</div><div class="analysis-body" id="analysis-balance">Waiting&hellip;</div></div>
+              <div class="analysis-card"><div class="analysis-title">Critique Delta</div><div class="analysis-body" id="analysis-paired">Waiting&hellip;</div></div>
+              <div class="analysis-card"><div class="analysis-title">Business Creativity Tax</div><div class="analysis-body" id="analysis-tax">Waiting&hellip;</div></div>
+              <div class="analysis-card"><div class="analysis-title">Current Champions</div><div class="analysis-body" id="analysis-champions">Waiting&hellip;</div></div>
+              <div class="analysis-card"><div class="analysis-title">Policy Effects</div><div class="analysis-body" id="analysis-policy-effects">Waiting&hellip;</div></div>
+              <div class="analysis-card"><div class="analysis-title">Policy Validation</div><div class="analysis-body" id="analysis-policy-validation">Waiting&hellip;</div></div>
+              <div class="analysis-card"><div class="analysis-title">Evaluator Diagnostics</div><div class="analysis-body" id="analysis-diagnostics">Waiting&hellip;</div></div>
+              <div class="analysis-card"><div class="analysis-title">Protocol Reliability</div><div class="analysis-body" id="analysis-protocol-reliability">Waiting&hellip;</div></div>
+              <div class="analysis-card"><div class="analysis-title">Constraint Verifier</div><div class="analysis-body" id="analysis-constraint-verifier">Waiting&hellip;</div></div>
+              <div class="analysis-card"><div class="analysis-title">Characterization Metrics</div><div class="analysis-body" id="analysis-calibration-metrics">Waiting&hellip;</div></div>
+              <div class="analysis-card"><div class="analysis-title">Generator Learning</div><div class="analysis-body" id="analysis-generator-learning">Waiting&hellip;</div></div>
+              <div class="analysis-card"><div class="analysis-title">Policy Ledger</div><div class="analysis-body" id="analysis-policy-ledger">Waiting&hellip;</div></div>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      <!-- History -->
+      <div class="history-area">
+        <div class="history-section-hd">
+          Recent Outcomes
+          <span class="history-hint">(click a row to inspect)</span>
+          <span style="margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--ink-4);">total: <span id="stat-experiments">0</span> · best: <span id="stat-best">0.00</span> · trend: <span id="stat-improvement">—</span> · cost: <span id="stat-cost">$0.00</span></span>
         </div>
-    </div>
-
-    <div class="modal-overlay" id="packet-review-overlay" onclick="closePacketReviewModal(event)">
-        <div class="modal packet-review-modal" onclick="event.stopPropagation()">
-            <h3 id="packet-review-title">Packet Review</h3>
-            <div class="modal-meta" id="packet-review-meta"></div>
-            <div class="modal-section">
-                <div class="modal-section-label">Prompt</div>
-                <div class="modal-section-content" id="packet-review-prompt"></div>
-            </div>
-            <div class="modal-section">
-                <div class="modal-section-label">Judges</div>
-                <div class="modal-section-content" id="packet-review-judges"></div>
-            </div>
-            <div class="packet-review-grid" id="packet-review-grid"></div>
-            <div class="modal-section">
-                <div class="modal-section-label">Human Judgment</div>
-                <div class="modal-review-intro">Choose a verdict first. Only select a preferred artifact when one actually wins; ties, both-bad cases, and abstentions should stay honest.</div>
-                <div class="modal-review-status" id="packet-review-status" style="display:none;"></div>
-                <div class="modal-review-saved-note hidden" id="packet-review-last-saved"></div>
-                <div class="modal-review-grid">
-                    <label class="review-field">
-                        <span>Verdict</span>
-                        <select id="packet-review-verdict">
-                            <option value="preferred">Preferred artifact</option>
-                            <option value="tie">Tie</option>
-                            <option value="both_bad">Both bad</option>
-                            <option value="abstain">Abstain</option>
-                        </select>
-                    </label>
-                    <label class="review-field">
-                        <span>Preferred Artifact</span>
-                        <select id="packet-review-choice">
-                            <option value="">Select</option>
-                        </select>
-                    </label>
-                    <label class="review-field">
-                        <span>Confidence</span>
-                        <select id="packet-review-confidence">
-                            <option value="">Select</option>
-                            <option value="certain">Certain</option>
-                            <option value="tentative">Tentative</option>
-                            <option value="coin_flip">Coin Flip</option>
-                        </select>
-                    </label>
-                    <label class="review-field">
-                        <span>Distinctiveness</span>
-                        <select id="packet-review-distinctiveness">
-                            <option value="">Select</option>
-                            <option value="clearly_distinct">Clearly distinct</option>
-                            <option value="somewhat_distinct">Somewhat distinct</option>
-                            <option value="same_writer">Same writer</option>
-                        </select>
-                    </label>
-                </div>
-                <label class="review-field review-field-inline">
-                    <input id="packet-review-revisit-later" type="checkbox" />
-                    <span>Keep this packet in circulation for revisit later</span>
-                </label>
-                <div class="modal-review-blind hidden" id="packet-review-blind-note"></div>
-                <div class="review-field review-field-block">
-                    <span>Structured Signals</span>
-                    <div class="modal-review-tag-intro">Mark the quality signals, anti-patterns, or evaluator misses that shaped your decision, say whether each lived in the winning artifact, the losing artifact, or both, and add a short quote when you can.</div>
-                    <div class="modal-review-legacy-tags hidden" id="packet-review-legacy-tags"></div>
-                    <div class="review-tag-groups" id="packet-review-reason-tags"></div>
-                </div>
-                <div class="modal-review-grid modal-review-grid-tags">
-                    <label class="review-field">
-                        <span>Extra Winner Tags</span>
-                        <input id="packet-review-extra-tags-winner" type="text" placeholder="optional, comma-separated" />
-                    </label>
-                    <label class="review-field">
-                        <span>Extra Loser Tags</span>
-                        <input id="packet-review-extra-tags-loser" type="text" placeholder="optional, comma-separated" />
-                    </label>
-                    <label class="review-field">
-                        <span>Extra Shared Tags</span>
-                        <input id="packet-review-extra-tags-both" type="text" placeholder="optional, comma-separated" />
-                    </label>
-                </div>
-                <label class="review-field review-field-block">
-                    <span>Why?</span>
-                    <textarea id="packet-review-rationale" rows="4" placeholder="What made one artifact better?"></textarea>
-                </label>
-                <div class="modal-review-actions">
-                    <button class="btn-refresh primary" id="packet-review-save-button" onclick="savePacketReviewDecision()">Save Human Judgment</button>
-                </div>
-            </div>
-            <button class="modal-close" onclick="document.getElementById('packet-review-overlay').classList.remove('active')">Close</button>
+        <div class="history-table-wrap" id="review-queue-anchor">
+          <table class="history-table">
+            <thead><tr><th>#</th><th>Outcome</th><th>Prompt</th><th>Voice</th><th>Judges</th><th>Packet</th><th>Mode</th></tr></thead>
+            <tbody id="history-body"></tbody>
+          </table>
         </div>
-    </div>
+      </div>
 
-    <script src="/static/app.js"></script>
+      <!-- Runner badge (hidden, JS updates it) -->
+      <span id="runner-badge" style="display:none;"></span>
+
+    </div><!-- /.lab-ops-inner -->
+  </details>
+
+  <!-- ═══ Colophon ════════════════════════════════════════════ -->
+  <div class="colophon">
+    <div>
+      Hamlet&rsquo;s Ghost — an instrument for detecting LLM judge preference divergence.<br/>
+      <a href="https://github.com/ethangarofalo/hamlets-ghost" target="_blank">/hamlets-ghost</a>
+      &nbsp;·&nbsp;<a href="#" onclick="document.querySelector('.lab-ops-section').setAttribute('open', ''); return false;">Lab controls</a>
+    </div>
+    <div class="right">
+      Set in IBM Plex Mono, Sans &amp; Serif.<br/>
+      Snapshot <span id="design-snap-clock-foot">—</span>
+    </div>
+  </div>
+
+</main>
+
+<!-- ═══ Modal: Artifact review ══════════════════════════════ -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3 id="modal-title">Experiment #—</h3>
+    <div class="modal-meta" id="modal-meta"></div>
+    <div class="modal-balance" id="modal-balance" style="display:none;"></div>
+    <div class="modal-section">
+      <div class="modal-section-label">Prompt</div>
+      <div class="modal-section-content" id="modal-prompt"></div>
+    </div>
+    <div class="modal-section">
+      <div class="modal-section-label">Artifact</div>
+      <div class="modal-section-content" id="modal-artifact"></div>
+    </div>
+    <div class="modal-section" id="modal-provenance-section" style="display:none;">
+      <div class="modal-section-label">Provenance</div>
+      <div class="modal-section-content" id="modal-provenance"></div>
+    </div>
+    <div class="modal-section" id="modal-role-packets-section" style="display:none;">
+      <div class="modal-section-label">Role Packet</div>
+      <div class="modal-section-content" id="modal-role-packets"></div>
+    </div>
+    <div class="modal-section" id="modal-comparison-section" style="display:none;">
+      <div class="modal-section-label">Comparison Packet</div>
+      <div class="modal-section-content" id="modal-comparison"></div>
+    </div>
+    <div class="modal-section">
+      <div class="modal-section-label">Human Characterization</div>
+      <div class="modal-review-intro" id="modal-review-intro">Score this artifact before revealing the model evaluation. Use the 1–5 questions for your fast judgment, then optionally add 1–10 dimension scores to compare directly with MUSE.</div>
+      <div class="modal-review-status" id="modal-review-status" style="display:none;"></div>
+      <div class="modal-review-grid">
+        <label class="review-field"><span id="review-interesting-label">Interesting (1–5)</span><select id="review-interesting"><option value="">Select</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></label>
+        <label class="review-field"><span>Effective (1–5)</span><select id="review-effective"><option value="">Select</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></label>
+        <label class="review-field"><span>Constraint Fit (1–5)</span><select id="review-constraint-fit"><option value="">Select</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></label>
+        <label class="review-field"><span>Worth Saving (1–5)</span><select id="review-worth-saving"><option value="">Select</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></label>
+      </div>
+      <div class="modal-section-label">Optional Direct Comparison To MUSE</div>
+      <div class="modal-review-grid">
+        <label class="review-field"><span>Novelty (1–10)</span><input id="review-novelty" type="number" min="1" max="10"/></label>
+        <label class="review-field"><span>Surprise (1–10)</span><input id="review-surprise" type="number" min="1" max="10"/></label>
+        <label class="review-field"><span>Value (1–10)</span><input id="review-value" type="number" min="1" max="10"/></label>
+        <label class="review-field"><span>Elaboration (1–10)</span><input id="review-elaboration" type="number" min="1" max="10"/></label>
+        <label class="review-field"><span>Coherence (1–10)</span><input id="review-coherence" type="number" min="1" max="10"/></label>
+      </div>
+      <label class="review-field review-field-block"><span>Best Part</span><textarea id="review-best-part" rows="2"></textarea></label>
+      <label class="review-field review-field-block"><span>Missed Opportunity</span><textarea id="review-missed-opportunity" rows="3"></textarea></label>
+      <label class="review-field review-field-block"><span>Socratic Question</span><textarea id="review-socratic-question" rows="3"></textarea></label>
+      <div class="modal-review-actions">
+        <button class="btn btn-refresh" id="review-save-button" onclick="saveHumanReview()">Save Human Review</button>
+        <button class="btn btn-refresh" id="review-reveal-button" onclick="toggleModelEvaluation()">Reveal Model Evaluation</button>
+      </div>
+    </div>
+    <div class="modal-model-eval hidden" id="modal-model-eval">
+      <div class="modal-constraint-status" id="modal-constraints" style="display:none;"></div>
+      <div class="modal-review-comparison" id="modal-review-comparison" style="display:none;"></div>
+      <div class="modal-scores" id="modal-scores"></div>
+      <div class="modal-scores" id="modal-holdout" style="display:none;"></div>
+      <div class="modal-section">
+        <div class="modal-section-label">Critique</div>
+        <div class="modal-section-content" id="modal-critique"></div>
+      </div>
+    </div>
+    <div class="modal-section">
+      <div class="modal-section-label">Process Trace</div>
+      <div class="modal-section-content" id="modal-trace"></div>
+    </div>
+    <div class="modal-section" id="modal-verifier-section" style="display:none;">
+      <div class="modal-section-label">Verifier</div>
+      <div class="modal-section-content" id="modal-verifier"></div>
+    </div>
+    <div class="modal-section" id="modal-error-section" style="display:none;">
+      <div class="modal-section-label">Error Traceback</div>
+      <div class="modal-section-content modal-error" id="modal-error"></div>
+    </div>
+    <button class="modal-close" onclick="document.getElementById('modal-overlay').classList.remove('active')">Close</button>
+  </div>
+</div>
+
+<!-- ═══ Modal: Council ══════════════════════════════════════ -->
+<div class="modal-overlay" id="council-modal-overlay" onclick="closeCouncilModal(event)">
+  <div class="modal council-modal" onclick="event.stopPropagation()">
+    <h3 id="council-modal-title">Lab Research Council</h3>
+    <div class="modal-meta" id="council-modal-meta"></div>
+    <div class="recommendation-grid council-grid">
+      <div class="recommendation-card"><div class="analysis-title">Confidence</div><div class="analysis-body" id="council-confidence">—</div></div>
+      <div class="recommendation-card"><div class="analysis-title">Strongest Finding</div><div class="analysis-body" id="council-strongest">—</div></div>
+      <div class="recommendation-card"><div class="analysis-title">Recommendation</div><div class="analysis-body" id="council-recommendation">—</div></div>
+      <div class="recommendation-card"><div class="analysis-title">Next Experiment</div><div class="analysis-body" id="council-next">—</div></div>
+    </div>
+    <div class="modal-section"><div class="modal-section-label">Stop Doing</div><div class="modal-section-content" id="council-stop"></div></div>
+    <div class="modal-section"><div class="modal-section-label">Evaluator Trust</div><div class="modal-section-content" id="council-evaluator"></div></div>
+    <div class="modal-section"><div class="modal-section-label">Prompt Diagnosis</div><div class="modal-section-content" id="council-prompt-diagnosis"></div></div>
+    <div class="modal-section"><div class="modal-section-label">Evaluator Education</div><div class="modal-section-content" id="council-evaluator-education"></div></div>
+    <div class="modal-section"><div class="modal-section-label">Prompt Diagnosis Refinements</div><div class="modal-section-content" id="council-prompt-recommendations"></div></div>
+    <div class="modal-section"><div class="modal-section-label">Evaluator Curriculum Refinements</div><div class="modal-section-content" id="council-evaluator-recommendations"></div></div>
+    <div class="modal-section"><div class="modal-section-label">Contrast Set Candidates</div><div class="modal-section-content" id="council-contrast-candidates"></div></div>
+    <div class="modal-section"><div class="modal-section-label">Protocol Assessment</div><div class="modal-section-content" id="council-protocol"></div></div>
+    <div class="modal-section"><div class="modal-section-label">Research Memo</div><div class="modal-section-content" id="council-memo"></div></div>
+    <button class="modal-close" onclick="document.getElementById('council-modal-overlay').classList.remove('active')">Close</button>
+  </div>
+</div>
+
+<!-- ═══ Modal: Packet review ════════════════════════════════ -->
+<div class="modal-overlay" id="packet-review-overlay" onclick="closePacketReviewModal(event)">
+  <div class="modal packet-review-modal" onclick="event.stopPropagation()">
+    <h3 id="packet-review-title">Packet Review</h3>
+    <div class="modal-meta" id="packet-review-meta"></div>
+    <div class="modal-section"><div class="modal-section-label">Prompt</div><div class="modal-section-content" id="packet-review-prompt"></div></div>
+    <div class="modal-section"><div class="modal-section-label">Judges</div><div class="modal-section-content" id="packet-review-judges"></div></div>
+    <div class="packet-review-grid" id="packet-review-grid"></div>
+    <div class="modal-section">
+      <div class="modal-section-label">Human Judgment</div>
+      <div class="modal-review-intro">Choose a verdict first. Only select a preferred artifact when one actually wins; ties, both-bad cases, and abstentions should stay honest.</div>
+      <div class="modal-review-status" id="packet-review-status" style="display:none;"></div>
+      <div class="modal-review-saved-note hidden" id="packet-review-last-saved"></div>
+      <div class="modal-review-grid">
+        <label class="review-field"><span>Verdict</span>
+          <select id="packet-review-verdict">
+            <option value="preferred">Preferred artifact</option>
+            <option value="tie">Tie</option>
+            <option value="both_bad">Both bad</option>
+            <option value="abstain">Abstain</option>
+          </select>
+        </label>
+        <label class="review-field"><span>Preferred Artifact</span><select id="packet-review-choice"><option value="">Select</option></select></label>
+        <label class="review-field"><span>Confidence</span>
+          <select id="packet-review-confidence">
+            <option value="">Select</option>
+            <option value="certain">Certain</option>
+            <option value="tentative">Tentative</option>
+            <option value="coin_flip">Coin Flip</option>
+          </select>
+        </label>
+        <label class="review-field"><span>Distinctiveness</span>
+          <select id="packet-review-distinctiveness">
+            <option value="">Select</option>
+            <option value="clearly_distinct">Clearly distinct</option>
+            <option value="somewhat_distinct">Somewhat distinct</option>
+            <option value="same_writer">Same writer</option>
+          </select>
+        </label>
+      </div>
+      <label class="review-field review-field-inline">
+        <input id="packet-review-revisit-later" type="checkbox"/>
+        <span>Keep this packet in circulation for revisit later</span>
+      </label>
+      <div class="modal-review-blind hidden" id="packet-review-blind-note"></div>
+      <div class="review-field review-field-block">
+        <span>Structured Signals</span>
+        <div class="modal-review-tag-intro">Mark the quality signals, anti-patterns, or evaluator misses that shaped your decision, say whether each lived in the winning artifact, the losing artifact, or both, and add a short quote when you can.</div>
+        <div class="modal-review-legacy-tags hidden" id="packet-review-legacy-tags"></div>
+        <div class="review-tag-groups" id="packet-review-reason-tags"></div>
+      </div>
+      <div class="modal-review-grid modal-review-grid-tags">
+        <label class="review-field"><span>Extra Winner Tags</span><input id="packet-review-extra-tags-winner" type="text" placeholder="optional, comma-separated"/></label>
+        <label class="review-field"><span>Extra Loser Tags</span><input id="packet-review-extra-tags-loser" type="text" placeholder="optional, comma-separated"/></label>
+        <label class="review-field"><span>Extra Shared Tags</span><input id="packet-review-extra-tags-both" type="text" placeholder="optional, comma-separated"/></label>
+      </div>
+      <label class="review-field review-field-block"><span>Why?</span><textarea id="packet-review-rationale" rows="4" placeholder="What made one artifact better?"></textarea></label>
+      <div class="modal-review-actions">
+        <button class="btn btn-refresh primary" id="packet-review-save-button" onclick="savePacketReviewDecision()">Save Human Judgment</button>
+      </div>
+    </div>
+    <button class="modal-close" onclick="document.getElementById('packet-review-overlay').classList.remove('active')">Close</button>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
 </body>
 </html>

@@ -10,6 +10,7 @@ let currentCouncilSession = null;
 let currentCouncilActions = [];
 let currentRulePromotionReport = null;
 let reviewTagCatalog = null;
+let lastPacketAt = null;
 const ADMIN_TOKEN_STORAGE_KEY = 'labAdminToken';
 const POLL_INTERVAL_MS = 4000;
 const REASON_TAG_TARGETS = ['winner', 'loser', 'both'];
@@ -70,6 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initChart();
     refresh();
     startPolling();
+    initDesignMotion();
 });
 
 function startPolling() {
@@ -200,6 +202,7 @@ function renderCouncilGovernanceBoard() {
 
 function renderRulePromotionProposals(report) {
     currentRulePromotionReport = report || null;
+    updateDesignCompilerLearning(report);
     const strip = document.getElementById('rule-proposal-strip');
     const countEl = document.getElementById('rule-proposal-count');
     const bodyEl = document.getElementById('rule-proposal-body');
@@ -400,6 +403,11 @@ function updateProviderStatus(data) {
         setModel('cast-model-muse', cast.muse);
         setModel('cast-model-athena', cast.athena);
         setModel('cast-model-apollo', cast.apollo);
+        // Design panel model display
+        const dp = (id, info) => { const e = document.getElementById(id); if (e && info) e.textContent = info.model || '--'; };
+        dp('design-panel-muse', cast.muse);
+        dp('design-panel-athena', cast.athena);
+        dp('design-panel-apollo', cast.apollo);
     }
 }
 
@@ -420,6 +428,7 @@ function renderReviewQueue(data) {
 
     if (!currentReviewQueue.length && !assemblingRows.length && !stalledRows.length && !graveyardRows.length) {
         el.innerHTML = '<div class="analysis-empty">No human judgment queue yet.</div>';
+        updateDesignQueue(data);
         return;
     }
     const readyHtml = currentReviewQueue.map((row, index) => {
@@ -537,6 +546,7 @@ function renderReviewQueue(data) {
         </div>
     ` : '';
     el.innerHTML = `${readyHtml}${assemblingHtml}${stalledHtml}${graveyardHtml}`;
+    updateDesignQueue(data);
 }
 
 function formatQueueMemberLabel(member, roleCounts = {}) {
@@ -1115,6 +1125,15 @@ function updateStats(data) {
 
     // Animate cast strip: light up agents during a run
     updateCastActivity(s.running);
+
+    // Design instrument: runner state + experiments counter + last-activity timestamp
+    const _dse = document.getElementById('design-stat-experiments');
+    if (_dse) _dse.textContent = s.total_experiments || 0;
+    updateDesignRunnerState(!!s.running);
+    if (s.updated_at) {
+        const _d = new Date(s.updated_at);
+        if (!isNaN(_d.getTime())) lastPacketAt = _d;
+    }
 }
 
 function updateTrends(trends) {
@@ -2689,3 +2708,279 @@ document.addEventListener('keydown', (e) => {
         document.getElementById('packet-review-overlay').classList.remove('active');
     }
 });
+
+// ── Design Instrument Motion & Render ────────────────────────────────────────
+
+let designLoopStateIndex = 0;
+const DESIGN_LOOP_STATES = [
+    { active: [],     legend: 'Runner idle. Awaiting next experiment.' },
+    { active: [0],    legend: 'Genesis generating artifact…' },
+    { active: [0, 1], legend: 'Theron generating paired artifact…' },
+    { active: [2],    legend: 'Muse evaluating both artifacts…' },
+    { active: [3],    legend: 'Athena evaluating both artifacts…' },
+    { active: [4],    legend: 'Apollo evaluating both artifacts…' },
+    { active: [],     legend: 'Packet complete. Awaiting human review.' },
+];
+
+function initDesignMotion() {
+    // UTC clock tick every 1 s
+    function tickClock() {
+        const now = new Date();
+        const hh = String(now.getUTCHours()).padStart(2, '0');
+        const mm = String(now.getUTCMinutes()).padStart(2, '0');
+        const ss = String(now.getUTCSeconds()).padStart(2, '0');
+        const t = `${hh}:${mm}:${ss} UTC`;
+        const cl = document.getElementById('design-snap-clock');
+        if (cl) cl.textContent = t;
+        const cf = document.getElementById('design-snap-clock-foot');
+        if (cf) cf.textContent = t;
+    }
+    tickClock();
+    setInterval(tickClock, 1000);
+
+    // Last-packet-ago display every 30 s
+    function updateAgoDisplay() {
+        const ago = lastPacketAt ? formatAgoShort(lastPacketAt) : '—';
+        const a1 = document.getElementById('design-last-packet-ago');
+        if (a1) a1.textContent = ago;
+        const a2 = document.getElementById('design-trace-last');
+        if (a2) a2.textContent = ago;
+    }
+    updateAgoDisplay();
+    setInterval(updateAgoDisplay, 30000);
+
+    // Loop-state cadence every 9 s (cosmetic when idle; runner state overrides)
+    setInterval(() => {
+        designLoopStateIndex = (designLoopStateIndex + 1) % DESIGN_LOOP_STATES.length;
+    }, 9000);
+}
+
+function formatAgoShort(date) {
+    if (!date) return '—';
+    const sec = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+    if (sec < 60) return `${sec}s`;
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `${min}m`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr}h`;
+    return `${Math.floor(hr / 24)}d`;
+}
+
+function renderDesignLoopState(isRunning) {
+    const track = document.getElementById('design-agent-track');
+    const legendEl = document.getElementById('design-loop-legend');
+    if (!track) return;
+    const cells = Array.from(track.querySelectorAll('.cell'));
+    if (!isRunning) {
+        cells.forEach(c => c.classList.remove('active'));
+        if (legendEl) legendEl.textContent = 'Runner idle. Last packet filed and awaiting human review.';
+        return;
+    }
+    const state = DESIGN_LOOP_STATES[designLoopStateIndex % DESIGN_LOOP_STATES.length];
+    cells.forEach((c, i) => c.classList.toggle('active', state.active.includes(i)));
+    if (legendEl) legendEl.textContent = state.legend;
+}
+
+function updateDesignRunnerState(isRunning) {
+    const stateEl = document.getElementById('design-runner-state');
+    const labelEl = document.getElementById('design-runner-label');
+    if (stateEl) {
+        stateEl.classList.toggle('idle', !isRunning);
+        stateEl.classList.toggle('running', !!isRunning);
+    }
+    if (labelEl) labelEl.textContent = isRunning ? 'Runner · running' : 'Runner · idle';
+    renderDesignLoopState(isRunning);
+}
+
+function updateDesignCompilerLearning(report) {
+    const proposals = Array.isArray(report?.proposals) ? report.proposals : [];
+    const charLabels = ['aligned', 'llm_specific', 'divergent', 'human_specific', 'insufficient_data'];
+    const counts = Object.fromEntries(charLabels.map(l => [l, 0]));
+    let totalEligible = 0;
+    let totalHuman = 0;
+    let totalSuppressed = 0;
+
+    for (const p of proposals) {
+        const lbl = p.characterization || 'insufficient_data';
+        counts[lbl] = (counts[lbl] || 0) + 1;
+        const m = p.metrics || {};
+        totalEligible += m.eligible_slices ?? m.total_slices ?? 0;
+        totalHuman += m.human_decisive || 0;
+        totalSuppressed += m.suppressed_dual_constraint_fail || 0;
+    }
+    const characterized = proposals.filter(
+        p => p.characterization && p.characterization !== 'insufficient_data'
+    ).length;
+
+    // Ledger cells
+    for (const lbl of charLabels) {
+        const cell = document.getElementById(`design-ledger-${lbl}`);
+        if (!cell) continue;
+        const numEl = cell.querySelector('.num');
+        if (numEl) {
+            numEl.classList.toggle('dim', counts[lbl] === 0);
+            numEl.innerHTML = `${counts[lbl]}<span class="of"> / ${proposals.length}</span>`;
+        }
+    }
+
+    // Filemeta row
+    const _st = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
+    const mode = report?.mode || 'dry-run (proposals only)';
+    _st('design-fm-mode', mode);
+    _st('design-fm-rules-tracked', proposals.length);
+    _st('design-fm-decisive-human', totalHuman);
+    _st('design-fm-characterized', `${characterized} / ${proposals.length}`);
+
+    // § I.a claim headline
+    const claimEl = document.getElementById('design-cl-claim');
+    if (claimEl) {
+        if (!proposals.length) {
+            claimEl.innerHTML = '<strong>No rule evidence on record.</strong> Run compiler-compare packets to begin accumulating signal.';
+        } else {
+            const promotions = proposals.filter(p => p.recommendation === 'promote').length;
+            const watches = proposals.filter(p => p.recommendation === 'watch').length;
+            claimEl.innerHTML = promotions
+                ? `<strong>${promotions} rule${promotions === 1 ? '' : 's'} eligible for promotion.</strong> ${watches} under watch. ${totalHuman} decisive human reviews on record.`
+                : `<strong>${proposals.length} rule${proposals.length === 1 ? '' : 's'} under evaluation.</strong> ${watches} under watch. Awaiting decisive human signal before any promotion.`;
+        }
+    }
+
+    // § III.a empirical state
+    _st('design-stat-rules', proposals.length);
+    const statPkEl = document.getElementById('design-stat-packets');
+    if (statPkEl) statPkEl.textContent = (report?.total_packets ?? totalEligible) || '—';
+    _st('design-stat-eligible', totalEligible || '—');
+    _st('design-stat-families', report?.support_families ?? '—');
+    _st('design-stat-human', totalHuman);
+    _st('design-stat-characterized', `${characterized} / ${proposals.length}`);
+    _st('design-stat-mode', mode);
+
+    // Trace strip packet count
+    _st('design-trace-n', totalEligible || '—');
+
+    // Thresholds — only rewrite if the server sends threshold data
+    const thresh = report?.thresholds || {};
+    if (Object.keys(thresh).length) {
+        const threshEl = document.getElementById('design-cl-thresh-v');
+        if (threshEl) {
+            const parts = [];
+            if (thresh.characterization_min_human != null) {
+                parts.push(`<span>characterization_min_human <b>= ${thresh.characterization_min_human}</b></span>`);
+            }
+            const famMin = thresh.support_families_min ?? thresh.provisional_families;
+            if (famMin != null) parts.push(`<span>support_families_min <b>= ${famMin}</b></span>`);
+            const pkMin = thresh.support_packets_min ?? thresh.provisional_packets;
+            if (pkMin != null) parts.push(`<span>support_packets_min <b>= ${pkMin}</b></span>`);
+            if (thresh.promote_human_win_rate != null) {
+                parts.push(`<span>promote_human_win_rate <b>≥ ${Number(thresh.promote_human_win_rate).toFixed(2)}</b></span>`);
+            }
+            parts.push(`<span>suppress dual constraint-fail <b>= true</b></span>`);
+            threshEl.innerHTML = parts.join('');
+        }
+    }
+
+    // Stability: suppression rate bar
+    const suppBar = document.getElementById('design-stability-suppression');
+    if (suppBar) {
+        const fill = suppBar.querySelector('.fill');
+        const pct = totalEligible > 0 ? Math.min(100, Math.round((totalSuppressed / totalEligible) * 100)) : 0;
+        if (fill) fill.style.width = `${pct}%`;
+    }
+    _st('design-stability-suppression-v', `${totalSuppressed} / ${totalEligible || '—'}`);
+
+    // Stability: human coverage bar
+    const humanFill = document.getElementById('design-stability-human-fill');
+    if (humanFill) {
+        const pct = totalEligible > 0 ? Math.min(100, Math.round((totalHuman / totalEligible) * 100)) : 0;
+        humanFill.style.width = `${pct}%`;
+    }
+    _st('design-stability-human-v', `${totalHuman} / ${totalEligible || '—'}`);
+
+    // Proposals table body
+    const bodyEl = document.getElementById('design-proposals-body');
+    if (!bodyEl) return;
+
+    if (!proposals.length) {
+        bodyEl.innerHTML = '<div class="q-empty">No rules under evaluation yet. Run compiler-compare packets to accumulate signal.</div>';
+        return;
+    }
+
+    bodyEl.innerHTML = proposals.map(item => {
+        const m = item.metrics || {};
+        const rec = item.recommendation || 'hold';
+        const charLabel = item.characterization || 'insufficient_data';
+        const eligibleSlices = m.eligible_slices ?? m.total_slices ?? 0;
+        const evalHelped = m.evaluator_helped ?? 0;
+        const panelSupport = eligibleSlices ? `${evalHelped} / ${eligibleSlices}` : '—';
+        const winRate = m.human_win_rate != null ? `${Number(m.human_win_rate).toFixed(2)} wr` : '—';
+        const humanDecisive = m.human_decisive || 0;
+        const humanNote = humanDecisive ? `${humanDecisive} decisive · ${winRate}` : 'no decisive reviews';
+        const status = item.current_status || 'candidate';
+        const provenance = item.proposed_status && rec === 'promote'
+            ? `${status} → ${item.proposed_status}`
+            : status;
+        // .rec class goes directly on the first column div so CSS can target .rec.promote etc.
+        const recText = rec === 'promote' ? '↑ promote' : rec === 'watch' ? '○ watch' : '— hold';
+        return `
+            <div class="proposals-row rule-characterization-${escapeHtml(charLabel)}" role="row">
+                <div class="rec ${escapeHtml(rec)}"><span class="tag">${escapeHtml(recText)}</span></div>
+                <div class="rule-id">${escapeHtml(item.title || item.rule_key || 'untitled')}</div>
+                <div class="char">${escapeHtml(charLabel.replaceAll('_', '\u200b_'))}</div>
+                <div class="evidence">${escapeHtml(panelSupport)}</div>
+                <div class="human">${escapeHtml(humanNote)}</div>
+                <div class="provenance">${escapeHtml(provenance)}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+function updateDesignQueue(data) {
+    const countEl = document.getElementById('design-queue-count-n');
+    const listEl = document.getElementById('design-queue-list');
+    if (!listEl) return;
+
+    const rows = Array.isArray(data?.rows) ? data.rows : [];
+    if (countEl) countEl.textContent = rows.length;
+
+    if (!rows.length) {
+        listEl.innerHTML = '<div class="q-empty">Queue is clear — no packets awaiting decisive human review.</div>';
+        return;
+    }
+
+    listEl.innerHTML = rows.map((row, index) => {
+        const lane = row.lane || 'creative';
+        const family = (row.family || 'unclassified').replaceAll('_', ' ');
+        const prompt = truncateMiddle(
+            row.prompt || row.members?.[0]?.artifact_preview || 'Packet awaiting review.',
+            200
+        );
+        const preferred = Array.isArray(row.judge_preferences)
+            ? row.judge_preferences.map(s => {
+                const winner = s.winner_experiment_id ? `#${s.winner_experiment_id}` : 'split';
+                return `${formatRoleLabel(s.judge)} → ${winner}`;
+            }).join(' · ')
+            : '—';
+        const queueHeadline = !row.has_complete_panel && (row.missing_judges || []).length
+            ? `Panel incomplete · missing ${row.missing_judges.map(formatRoleLabel).join(', ')}`
+            : row.has_noticeable_disagreement
+                ? 'Panel diverged'
+                : 'Panel broadly agrees';
+        const marginNote = row.judge_preferences?.[0]?.margin != null
+            ? ` · Δ ${row.judge_preferences[0].margin.toFixed(2)}`
+            : '';
+        return `
+            <div class="q-item">
+                <div class="q-prompt">
+                    <span class="lane-badge ${escapeHtml(lane)}">${escapeHtml(lane)}</span>
+                    <span class="q-family">${escapeHtml(family)}</span>
+                    <span class="q-text">${escapeHtml(prompt)}</span>
+                </div>
+                <div class="q-split">${escapeHtml(preferred)}</div>
+                <div class="q-disagreement">${escapeHtml(queueHeadline + marginNote)}</div>
+                <div class="q-actions-btn">
+                    <button class="btn" onclick="openReviewQueueItem(${index})">Judge →</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
