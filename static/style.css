@@ -567,7 +567,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .q-list { display: block; }
 .q-item {
   display: grid;
-  grid-template-columns: 56px 1fr 1fr 220px 150px;
+  grid-template-columns: minmax(260px, 1.6fr) minmax(180px, 1fr) 180px 110px;
   gap: 0;
   border-bottom: 1px solid var(--paper-rule);
   align-items: stretch;

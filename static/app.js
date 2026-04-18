@@ -2021,16 +2021,26 @@ function renderComparisonPacket(data) {
         return;
     }
 
+    const packetMemberForCurrent = (packet.members || []).find(m => m.experiment_id === data.id) || {};
     const currentSummary = {
         experiment_id: data.id,
-        role_id: data.role_packets?.generators?.[0]?.role_id || 'genesis',
-        provider: data.role_packets?.generators?.[0]?.provider || 'local',
-        status: data.status,
-        promotion_status: data.promotion_status,
-        composite: data.composite,
+        role_id: data.role_packets?.generators?.[0]?.role_id || packetMemberForCurrent.role_id || 'genesis',
+        provider: data.role_packets?.generators?.[0]?.provider || packetMemberForCurrent.provider || 'local',
+        status: data.status || packetMemberForCurrent.status,
+        promotion_status: data.promotion_status || packetMemberForCurrent.promotion_status,
+        composite: data.composite ?? packetMemberForCurrent.composite,
         artifact: data.artifact_content || data.artifact || '',
     };
-    const members = [currentSummary, ...siblings].sort((a, b) => (a.experiment_id || 0) - (b.experiment_id || 0));
+    const normalizedSiblings = (siblings || []).map(sibling => ({
+        experiment_id: sibling.experiment_id ?? sibling.id,
+        role_id: sibling.role_id || sibling.role_packets?.generators?.[0]?.role_id || sibling.packet_role_id || 'generator',
+        provider: sibling.provider || sibling.role_packets?.generators?.[0]?.provider || 'local',
+        status: sibling.status,
+        promotion_status: sibling.promotion_status,
+        composite: sibling.composite,
+        artifact: sibling.artifact_content || sibling.artifact || '',
+    }));
+    const members = [currentSummary, ...normalizedSiblings].sort((a, b) => (a.experiment_id || 0) - (b.experiment_id || 0));
     el.innerHTML = `
         <div class="packet-summary">Packet ${escapeHtml(packet.packet_id)} · ${packet.size} linked runs · ${escapeHtml((packet.role_ids || []).map(formatRoleLabel).join(' / '))}</div>
         <div class="packet-compare-grid">

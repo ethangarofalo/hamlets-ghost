@@ -531,7 +531,13 @@ def _build_council_tag_counts(calibration_rows):
 
 def _summarize_council_focuses(analysis_payload, calibration_rows):
     human = analysis_payload.get("human_calibration") or {}
-    generator_learning = analysis_payload.get("generator_learning") or []
+    generator_learning_raw = analysis_payload.get("generator_learning") or []
+    if isinstance(generator_learning_raw, dict):
+        generator_learning = generator_learning_raw.get("rows") or []
+    elif isinstance(generator_learning_raw, list):
+        generator_learning = generator_learning_raw
+    else:
+        generator_learning = []
     diagnostics = analysis_payload.get("evaluator_diagnostics") or {}
     learning_snapshot = analysis_payload.get("learning_snapshot") or {}
     tag_counts = _build_council_tag_counts(calibration_rows)
