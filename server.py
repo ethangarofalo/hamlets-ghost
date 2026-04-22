@@ -1560,7 +1560,7 @@ async def get_analysis():
 
 @app.get("/api/review/disagreements")
 async def get_disagreement_queue():
-    rows = await db.list_disagreement_packets(limit=12, unresolved_only=True, include_consensus=True)
+    rows = await db.list_disagreement_packets(limit=12, unresolved_only=True, include_consensus=False)
     all_assembling_rows = await db.list_assembling_packets(limit=12)
     assembling_rows = [row for row in all_assembling_rows if row.get("assembly_health") == "active"]
     stalled_rows = [row for row in all_assembling_rows if row.get("assembly_health") == "stalled"]

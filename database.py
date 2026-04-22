@@ -15,7 +15,8 @@ SQLITE_BUSY_TIMEOUT_MS = 5000
 SQLITE_JOURNAL_MODE = "WAL"
 SQLITE_SYNCHRONOUS_MODE = "NORMAL"
 DISAGREEMENT_JUDGES = ("muse", "athena", "apollo")
-REVIEW_READY_JUDGES = ("muse", "athena")
+APOLLO_REVIEW_JUDGE = "apollo"
+APOLLO_CONTEXT_JUDGES = ("muse", "athena")
 LEGACY_EXPERIMENT_EPOCH = os.getenv("LAB_LEGACY_EPOCH", "legacy_foundation")
 CURRENT_EXPERIMENT_EPOCH = os.getenv("LAB_CURRENT_EPOCH", "native_cast")
 REASON_TAG_ATTRIBUTION_KEYS = ("winner", "loser", "both", "unattributed")
@@ -90,9 +91,22 @@ def _build_packet_disagreement(members, score_map, *, min_judge_margin):
             judges.append(summary)
     present_judges = {row["judge"] for row in judges}
     winners = [row["winner_experiment_id"] for row in judges if row["winner_experiment_id"] is not None]
-    has_review_ready_panel = all(judge in present_judges for judge in REVIEW_READY_JUDGES)
+    apollo_summary = next((row for row in judges if row["judge"] == APOLLO_REVIEW_JUDGE), None)
+    apollo_winner = apollo_summary["winner_experiment_id"] if apollo_summary else None
+    context_winners = [
+        row["winner_experiment_id"]
+        for row in judges
+        if row["judge"] in APOLLO_CONTEXT_JUDGES and row["winner_experiment_id"] is not None
+    ]
+    has_review_ready_panel = (
+        apollo_winner is not None
+        and any(judge in present_judges for judge in APOLLO_CONTEXT_JUDGES)
+    )
     has_complete_panel = len(judges) == len(DISAGREEMENT_JUDGES)
-    has_noticeable_disagreement = has_review_ready_panel and len(set(winners)) > 1
+    has_noticeable_disagreement = has_review_ready_panel and any(
+        winner != apollo_winner
+        for winner in context_winners
+    )
     vote_counts = {}
     for winner in winners:
         vote_counts[winner] = vote_counts.get(winner, 0) + 1

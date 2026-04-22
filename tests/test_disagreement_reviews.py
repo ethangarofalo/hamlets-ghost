@@ -443,7 +443,7 @@ class DisagreementReviewTests(unittest.IsolatedAsyncioTestCase):
         record = await db.get_experiment_by_id(exp_c)
         self.assertEqual(record["status"], "error")
 
-    async def test_primary_panel_ready_packet_enters_review_queue_without_apollo(self):
+    async def test_primary_panel_packet_waits_for_apollo_before_human_review(self):
         base_task = {
             "lane": "creative",
             "track": "paired",
@@ -468,15 +468,47 @@ class DisagreementReviewTests(unittest.IsolatedAsyncioTestCase):
         rows = await db.list_disagreement_packets(limit=10, unresolved_only=True, include_consensus=True, recent_limit=50)
         packet_ids = {row["packet_id"] for row in rows}
 
-        self.assertIn("packet_primary_ready_pair", packet_ids)
-        packet = next(row for row in rows if row["packet_id"] == "packet_primary_ready_pair")
-        self.assertTrue(packet["has_review_ready_panel"])
-        self.assertFalse(packet["has_complete_panel"])
-        self.assertEqual(packet["missing_judges"], ["apollo"])
+        self.assertNotIn("packet_primary_ready_pair", packet_ids)
 
         assembling = await db.list_assembling_packets(limit=10, recent_limit=50)
-        assembling_ids = {row["packet_id"] for row in assembling}
-        self.assertNotIn("packet_primary_ready_pair", assembling_ids)
+        packet = next(row for row in assembling if row["packet_id"] == "packet_primary_ready_pair")
+        self.assertFalse(packet["has_review_ready_panel"])
+        self.assertFalse(packet["has_complete_panel"])
+        self.assertEqual(packet["missing_judges"], ["apollo"])
+        self.assertEqual(packet["assembly_stage"], "awaiting_evaluator_panel")
+
+    async def test_apollo_disagreement_enters_human_review_queue(self):
+        base_task = {
+            "lane": "creative",
+            "track": "paired",
+            "prompt": "Write a psalm from an exhausted battery to the night-shift nurse who keeps asking for one more hour.",
+            "family": "personification",
+            "constraints": [],
+            "condition": "critique_on",
+            "generation_protocol": "paired_native",
+            "packet_id": "packet_apollo_disagreement_pair",
+        }
+        exp_c = await db.create_experiment({**base_task, "packet_role_id": "genesis", "packet_primary": True}, status="promoted")
+        exp_d = await db.create_experiment({**base_task, "packet_role_id": "theron", "packet_primary": False}, status="promoted")
+        await db.insert_artifact(exp_c, "Genesis artifact")
+        await db.insert_artifact(exp_d, "Theron artifact")
+        await db.insert_score(exp_c, "muse", {"composite": 8.0})
+        await db.insert_score(exp_d, "muse", {"composite": 7.6})
+        await db.insert_score(exp_c, "athena", {"composite": 8.1})
+        await db.insert_score(exp_d, "athena", {"composite": 7.7})
+        await db.insert_score(exp_c, "apollo", {"composite": 7.4})
+        await db.insert_score(exp_d, "apollo", {"composite": 8.4})
+        await db.finalize_experiment(exp_c, status="promoted", promotion_status="shadow")
+        await db.finalize_experiment(exp_d, status="promoted", promotion_status="shadow")
+
+        rows = await db.list_disagreement_packets(limit=10, unresolved_only=True, recent_limit=50)
+        packet_ids = {row["packet_id"] for row in rows}
+
+        self.assertIn("packet_apollo_disagreement_pair", packet_ids)
+        packet = next(row for row in rows if row["packet_id"] == "packet_apollo_disagreement_pair")
+        self.assertTrue(packet["has_review_ready_panel"])
+        self.assertTrue(packet["has_complete_panel"])
+        self.assertEqual(packet["missing_judges"], [])
 
     async def test_new_experiments_default_to_current_epoch(self):
         record = await db.get_experiment_by_id(self.exp_a)
