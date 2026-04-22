@@ -50,6 +50,7 @@ echo "[6/8] Backend tests"
   tests.test_experiment_design \
   tests.test_analytics \
   tests.test_disagreement_reviews \
+  tests.test_artifact_redaction \
   tests.test_prompt_compiler_schema
 echo
 
@@ -65,6 +66,6 @@ echo "[8/8] Ruff"
   server.py agents.py database.py experiments.py judgment_wiki.py scripts/promote_rules.py \
   tests/test_backend_hardening.py tests/test_api_security.py tests/test_lab_decision_matrix.py \
   tests/test_experiment_design.py tests/test_analytics.py tests/test_disagreement_reviews.py \
-  tests/test_prompt_compiler_schema.py
+  tests/test_artifact_redaction.py tests/test_prompt_compiler_schema.py
 echo
 echo "Preflight completed successfully."
