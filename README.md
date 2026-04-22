@@ -38,6 +38,10 @@ See [docs/implementation-status.md](docs/implementation-status.md) for the claim
 
 The backend is a FastAPI app backed by SQLite. Experiments move through generator roles, evaluator roles, review queues, and wiki/taxonomy surfaces: Genesis/Theron generate, Muse/Athena/Apollo judge, human review characterizes disagreements, and the reflective wiki preserves seeded concept pages, each labeled `seeded` until lab evidence corroborates them. The operational code lives mostly in [server.py](server.py), [agents.py](agents.py), [database.py](database.py), and [judgment_wiki.py](judgment_wiki.py).
 
+### Live-Mode Runtime Dependencies
+
+Theron and Apollo are provider-agnostic shell-outs to local CLI binaries that are not distributed with this repo. This separation is intentional: Apollo is meant to audit from a different model family than the OpenAI-backed Muse/Athena lane. Theron routes through `openclaw` (`THERON_OPENCLAW_BIN`, default `openclaw`) against a locally running OpenClaw gateway; Apollo routes through `hermes` (`APOLLO_HERMES_BIN`, default `hermes`). If a cloner does not have those binaries installed and reachable, Genesis/Muse/Athena still run on OpenAI with the credentials in `.env`, and the Theron/Apollo surfaces will report provider errors through `/api/providers`. What clones cleanly is the role definitions, adapter layer, prompts, schemas, and the full lab/review/wiki pipeline, not the external runtimes those two roles depend on. Demo mode (`./start.sh demo`) bypasses all external providers and runs entirely on synthetic fixtures.
+
 ## Read Next
 
 - [program.md](program.md) - detailed research protocol and operating model.
