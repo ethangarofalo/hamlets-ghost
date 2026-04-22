@@ -11,6 +11,13 @@ source: lumafox_lvf50
 
 # Showing Not Telling
 
+> **Seeded, not earned.** This concept is part of the day-one taxonomy
+> (Lumafox anti-pattern taxonomy v1.0.0). It has `evidence_count: 0`
+> in lab packet runs and has not yet been corroborated by this lab's
+> own experiments. Treat as hypothesis, not finding. See
+> [implementation-status.md](../../docs/implementation-status.md) row on
+> seeded taxonomy integration.
+
 - tag_id: showing_not_telling
 - domain: quality-signal
 - provenance: seeded
