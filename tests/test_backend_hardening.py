@@ -450,6 +450,7 @@ class BackendHardeningTests(unittest.IsolatedAsyncioTestCase):
              patch.object(server.db, "insert_artifact", insert_artifact), \
              patch.object(server.db, "update_artifact_process_trace", update_artifact_process_trace), \
              patch.object(server.db, "finalize_experiment", finalize_experiment), \
+             patch.object(server.db, "get_generator_feedback_for_task", AsyncMock(return_value={})), \
              patch.object(server.db, "get_state", get_state), \
              patch.object(server.agents, "run_genesis", AsyncMock(return_value=({"artifact": "   ", "process_trace": {}}, 0.12, False))), \
              patch.object(server.agents, "run_muse", AsyncMock()) as run_muse, \
