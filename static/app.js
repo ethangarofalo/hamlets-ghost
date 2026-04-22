@@ -396,7 +396,7 @@ function updateProviderStatus(data) {
     if (cast) {
         const setModel = (id, info) => {
             const mel = document.getElementById(id);
-            if (mel && info) mel.textContent = info.model || '--';
+            if (mel && info) mel.textContent = formatProviderModel(info) || '--';
         };
         setModel('cast-model-genesis', cast.genesis);
         setModel('cast-model-theron', cast.theron);
@@ -404,11 +404,46 @@ function updateProviderStatus(data) {
         setModel('cast-model-athena', cast.athena);
         setModel('cast-model-apollo', cast.apollo);
         // Design panel model display
-        const dp = (id, info) => { const e = document.getElementById(id); if (e && info) e.textContent = info.model || '--'; };
+        const dp = (id, info) => { const e = document.getElementById(id); if (e && info) e.textContent = formatProviderModel(info) || '--'; };
         dp('design-panel-muse', cast.muse);
         dp('design-panel-athena', cast.athena);
         dp('design-panel-apollo', cast.apollo);
     }
+}
+
+function formatProviderModel(info) {
+    if (!info) return '';
+    const backend = formatBackendLabel(info.backend);
+    const model = formatModelLabel(info.model);
+    if (backend && model) return `${backend} / ${model}`;
+    return model || backend || '';
+}
+
+function formatBackendLabel(backend) {
+    const key = String(backend || '').trim().toLowerCase();
+    const labels = {
+        openai: 'OpenAI',
+        openclaw: 'OpenClaw',
+        openclaw_gateway: 'OpenClaw',
+        openclaw_local: 'OpenClaw',
+        hermes: 'Hermes',
+        hermes_cli: 'Hermes',
+        theron: 'Theron',
+        theron_gateway: 'Theron',
+    };
+    return labels[key] || backend || '';
+}
+
+function formatModelLabel(model) {
+    const raw = String(model || '').trim();
+    const normalized = raw.toLowerCase();
+    if (!raw) return '';
+    if (normalized.includes('claude-opus-4-7') || normalized.includes('opus-4-7')) return 'Opus 4.7';
+    if (normalized.includes('claude-opus-4-6') || normalized.includes('opus-4-6')) return 'Opus 4.6';
+    if (normalized === 'gpt-5.4' || normalized.endsWith('/gpt-5.4')) return 'GPT-5.4';
+    if (normalized === 'gpt-5.4-mini' || normalized.endsWith('/gpt-5.4-mini')) return 'GPT-5.4 Mini';
+    if (normalized === 'gpt-5.1' || normalized.endsWith('/gpt-5.1')) return 'GPT-5.1';
+    return raw;
 }
 
 function renderReviewQueue(data) {
@@ -443,10 +478,12 @@ function renderReviewQueue(data) {
                 return `${formatRoleLabel(summary.judge)}→${winner}`;
             }).join(' · ')
             : 'mixed';
-        const queueHeadline = !row.has_complete_panel && (row.missing_judges || []).length
+        const queueHeadline = !row.has_review_ready_panel && (row.missing_judges || []).length
             ? `Primary judges ready · pending ${row.missing_judges.map(formatRoleLabel).join(', ')}`
             : row.has_noticeable_disagreement
-                ? 'Judges diverged'
+                ? (row.has_complete_panel
+                    ? 'Judges diverged'
+                    : `Judges diverged · pending ${(row.missing_judges || []).map(formatRoleLabel).join(', ') || 'third judge'}`)
                 : 'Judges broadly agree';
         const preview = row.members?.map(member => `#${member.experiment_id} ${formatRoleLabel(member.role_id)} · Muse ${fmtScore(member.muse_composite)} · Athena ${fmtScore(member.athena_composite)}${member.apollo_composite != null ? ` · Apollo ${fmtScore(member.apollo_composite)}` : ''}`).join('<br>') || '';
         const memberButtons = (row.members || []).map(member => `
@@ -2970,10 +3007,12 @@ function updateDesignQueue(data) {
                 return `${formatRoleLabel(s.judge)} → ${winner}`;
             }).join(' · ')
             : '—';
-        const queueHeadline = !row.has_complete_panel && (row.missing_judges || []).length
+        const queueHeadline = !row.has_review_ready_panel && (row.missing_judges || []).length
             ? `Panel incomplete · missing ${row.missing_judges.map(formatRoleLabel).join(', ')}`
             : row.has_noticeable_disagreement
-                ? 'Panel diverged'
+                ? (row.has_complete_panel
+                    ? 'Panel diverged'
+                    : `Panel diverged · missing ${(row.missing_judges || []).map(formatRoleLabel).join(', ') || 'third judge'}`)
                 : 'Panel broadly agrees';
         const marginNote = row.judge_preferences?.[0]?.margin != null
             ? ` · Δ ${row.judge_preferences[0].margin.toFixed(2)}`

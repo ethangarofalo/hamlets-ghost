@@ -16,6 +16,10 @@ cd "$ROOT_DIR"
 export PATH="/opt/homebrew/bin:$PATH"
 HOST="${LAB_HOST:-127.0.0.1}"
 PORT="${PORT:-7777}"
+PYTHON_BIN="$ROOT_DIR/.venv/bin/python"
+if [ ! -x "$PYTHON_BIN" ]; then
+  PYTHON_BIN="python3"
+fi
 
 if [ ! -f .env ]; then
   echo "ERROR: .env not found at $ROOT_DIR/.env" >&2
@@ -35,6 +39,10 @@ case "$MODE" in
   demo)
     export LAB_DB_PATH="demo_lab.db"
     BANNER="demo (synthetic fixture)"
+    if [ ! -f "$LAB_DB_PATH" ]; then
+      echo "demo_lab.db not found - bootstrapping from tracked fixtures..."
+      "$PYTHON_BIN" scripts/bootstrap_demo.py
+    fi
     ;;
   live|"")
     # Use whatever .env / default resolves to — creativity_lab.db in this tree
@@ -51,11 +59,6 @@ if lsof -ti :"$PORT" >/dev/null 2>&1; then
   echo "Port $PORT in use — stopping existing process..."
   lsof -ti :"$PORT" | xargs kill 2>/dev/null || true
   sleep 1
-fi
-
-PYTHON_BIN="$ROOT_DIR/.venv/bin/python"
-if [ ! -x "$PYTHON_BIN" ]; then
-  PYTHON_BIN="python3"
 fi
 
 URL="http://$HOST:$PORT"
